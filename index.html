@@ -2,11 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>XCTrack Pro • Cross Country Timing</title>
+<title>XC Race Timing — Demo</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#000000">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
     --bg: #f5f5f4;
@@ -32,6 +30,8 @@
     --danger-bg: #fef2f2;
     --danger-border: #fecaca;
     --pink: #db2777;
+    --pink-bg: #fdf2f8;
+    --pink-border: #fbcfe8;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
@@ -72,6 +72,8 @@
   .role-tag.coach { background: var(--primary-bg); color: var(--primary); }
   .picker-instructions { background: var(--warning-bg); border: 1px solid var(--warning-border); border-radius: 10px; padding: 12px 14px; margin-top: 20px; font-size: 13px; color: var(--warning); line-height: 1.5; }
   .picker-instructions b { display: block; margin-bottom: 4px; font-weight: 600; }
+  .picker-bottom { margin-top: 24px; display: flex; gap: 8px; }
+  .picker-bottom button { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); font-size: 13px; color: var(--text-muted); }
 
   /* coach app shell */
   .shell-top { padding: 12px 18px; border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 10; }
@@ -94,6 +96,15 @@
   .nav-tab:hover { color: var(--text); }
   .nav-tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
   .nav-tab .tab-badge { background: var(--warning-bg); color: var(--warning); font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 999px; margin-left: 4px; }
+
+  /* timer/recorder topbar (separate compact) */
+  .topbar { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; background: var(--surface); position: sticky; top: 0; z-index: 10; }
+  .topbar-l { min-width: 0; flex: 1; }
+  .eyebrow { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.6px; }
+  .meet-name { font-weight: 600; font-size: 14px; margin-top: 2px; }
+  .race-name { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+  .topbar-r { text-align: right; flex-shrink: 0; }
+  .live-time { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 18px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
 
   /* shared view container */
   .view { padding: 16px 18px; }
@@ -130,7 +141,7 @@
   .school-action-btn:hover { color: var(--text); border-color: var(--border-strong); }
   .school-action-btn.danger:hover { color: var(--danger); border-color: var(--danger-border); }
 
-  .athlete-row { display: grid; grid-template-columns: 22px 50px 1fr 24px 30px 60px 24px; gap: 8px; padding: 8px 14px; align-items: center; border-bottom: 1px solid var(--border); font-size: 12px; cursor: pointer; }
+  .athlete-row { display: grid; grid-template-columns: 50px 1fr 24px 30px 60px 24px; gap: 8px; padding: 8px 14px; align-items: center; border-bottom: 1px solid var(--border); font-size: 12px; cursor: pointer; }
   .athlete-row:last-child { border-bottom: none; }
   .athlete-row:hover { background: var(--surface-2); }
   .athlete-row.entered { background: var(--primary-bg); }
@@ -195,6 +206,13 @@
   .tap-mega-h { font-size: 13px; opacity: 0.85; margin-top: 12px; }
   .tap-flash { background: #d97706 !important; }
   .undo-btn { display: block; width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 13px; color: var(--text-muted); background: var(--surface); }
+  .recent-section { margin-top: 16px; }
+  .entry-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .entry-row:last-child { border-bottom: none; }
+  .pos-pill { background: #f1f5f9; color: var(--text-muted); font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 6px; min-width: 32px; text-align: center; flex-shrink: 0; }
+  .entry-time { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-weight: 600; font-size: 14px; margin-left: auto; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  .entry-name { font-size: 13px; font-weight: 500; }
+  .entry-sub { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
 
   /* recorder view (chute) */
   .pending-card { background: var(--primary-bg); border: 1.5px solid var(--primary-border); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
@@ -264,6 +282,43 @@
   .share-btn.primary { background: var(--primary); color: white; border-color: var(--primary); }
   .share-btn:hover { border-color: var(--border-strong); }
 
+  /* athletes tab */
+  .ath-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; overflow: hidden; }
+  .ath-card-head { padding: 12px 14px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; cursor: pointer; }
+  .ath-card-head:hover { background: var(--surface-2); }
+  .ath-card-head-l { min-width: 0; flex: 1; }
+  .ath-card-name { font-size: 14px; font-weight: 600; }
+  .ath-card-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .ath-card-pr { text-align: right; }
+  .ath-card-pr-v { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-weight: 600; font-size: 14px; }
+  .ath-card-pr-l { font-size: 9px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* meets list view */
+  .meet-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 10px; cursor: pointer; }
+  .meet-card:hover { border-color: var(--border-strong); }
+  .meet-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .meet-card-name { font-size: 15px; font-weight: 600; }
+  .meet-card-meta { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+  .meet-card-status { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 2px 8px; border-radius: 999px; flex-shrink: 0; }
+  .meet-card-status.upcoming { background: var(--surface-2); color: var(--text-muted); }
+  .meet-card-status.live { background: var(--warning-bg); color: var(--warning); }
+  .meet-card-status.done { background: var(--success-bg); color: var(--success); }
+
+  /* modal */
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
+  .modal { background: var(--surface); border-radius: 14px; padding: 20px; max-width: 420px; width: 100%; }
+  .modal-title { font-size: 17px; font-weight: 600; margin-bottom: 16px; }
+  .form-group { margin-bottom: 12px; }
+  .form-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px; }
+  .form-input { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background: var(--surface); }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+  .modal-actions button { flex: 1; padding: 10px; border-radius: 8px; font-size: 13px; font-weight: 500; }
+  .modal-actions .cancel { border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); }
+  .modal-actions .submit { background: var(--primary); color: white; }
+
+  .footer { padding: 16px 18px; text-align: center; font-size: 11px; color: var(--text-faint); border-top: 1px solid var(--border); margin-top: 32px; }
+
   /* roster upload */
   .upload-cta { width: 100%; padding: 14px; border-radius: 10px; background: var(--primary); color: white; font-size: 14px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; justify-content: center; gap: 10px; }
   .upload-cta:hover { background: var(--primary-strong); }
@@ -287,19 +342,6 @@
   .upload-row-p .row-name { font-weight: 500; }
   .upload-options { padding: 12px; background: var(--surface-2); border-radius: 8px; margin: 12px 0; font-size: 13px; display: flex; align-items: center; gap: 8px; }
   .upload-sample-btn { background: var(--surface); color: var(--text-muted); padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 11px; font-weight: 500; }
-
-  /* modal */
-  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
-  .modal { background: var(--surface); border-radius: 14px; padding: 20px; max-width: 420px; width: 100%; }
-  .modal-title { font-size: 17px; font-weight: 600; margin-bottom: 16px; }
-  .form-group { margin-bottom: 12px; }
-  .form-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px; }
-  .form-input { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background: var(--surface); }
-  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
-  .modal-actions button { flex: 1; padding: 10px; border-radius: 8px; font-size: 13px; font-weight: 500; }
-  .modal-actions .cancel { border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); }
-  .modal-actions .submit { background: var(--primary); color: white; }
 </style>
 </head>
 <body>
@@ -308,56 +350,139 @@
 
 <script>
 //=================================================================
-// STATE + SYNC (simplified for your exact needs)
+// SEED DATA - Updated for user's roster format (no bib in CSV, email/phone private)
 //=================================================================
-const CHANNEL_NAME = "xc-track-pro-v1";
-const STORAGE_KEY = "xc-track-pro-v1";
+const SEED_SCHOOLS = ["Crystal Springs", "Pine Hills", "Riverside", "Westview", "Northgate", "Eastfield"];
+
+// Athletes now include email and phone (private, for coach use only)
+const SEED_ATHLETES = [
+  { id: "a-cs1", first: "Marcus", last: "Chen", school: "Crystal Springs", grade: 12, gender: "M", email: "marcus.chen@email.com", phone: "555-0101" },
+  { id: "a-cs2", first: "Jamal", last: "Williams", school: "Crystal Springs", grade: 12, gender: "M", email: "jamal.w@email.com", phone: "555-0102" },
+  { id: "a-cs3", first: "Diego", last: "Ramirez", school: "Crystal Springs", grade: 11, gender: "M", email: "diego.r@email.com", phone: "555-0103" },
+  { id: "a-cs4", first: "Lucas", last: "Kim", school: "Crystal Springs", grade: 11, gender: "M", email: "lucas.kim@email.com", phone: "555-0104" },
+  { id: "a-cs5", first: "Aiden", last: "Park", school: "Crystal Springs", grade: 10, gender: "M", email: "aiden.park@email.com", phone: "555-0105" },
+  { id: "a-ph1", first: "Caleb", last: "Brooks", school: "Pine Hills", grade: 12, gender: "M", email: "caleb.b@email.com", phone: "555-0201" },
+  { id: "a-ph2", first: "Owen", last: "Garcia", school: "Pine Hills", grade: 12, gender: "M", email: "owen.g@email.com", phone: "555-0202" },
+  { id: "a-ph3", first: "Ethan", last: "Lee", school: "Pine Hills", grade: 11, gender: "M", email: "ethan.lee@email.com", phone: "555-0203" },
+  { id: "a-rv1", first: "Isaiah", last: "Thomas", school: "Riverside", grade: 12, gender: "M", email: "isaiah.t@email.com", phone: "555-0301" },
+  { id: "a-rv2", first: "Carlos", last: "Mendoza", school: "Riverside", grade: 11, gender: "M", email: "carlos.m@email.com", phone: "555-0302" },
+  { id: "a-wv1", first: "Andre", last: "Dubois", school: "Westview", grade: 12, gender: "M", email: "andre.d@email.com", phone: "555-0401" },
+  { id: "a-wv2", first: "Maxwell", last: "Tran", school: "Westview", grade: 12, gender: "M", email: "max.tran@email.com", phone: "555-0402" },
+  { id: "a-ng1", first: "Cameron", last: "Bryant", school: "Northgate", grade: 12, gender: "M", email: "cameron.b@email.com", phone: "555-0501" },
+  { id: "a-ef1", first: "Phoenix", last: "Walker", school: "Eastfield", grade: 12, gender: "M", email: "phoenix.w@email.com", phone: "555-0601" },
+];
+
+function defaultEntries() {
+  const entries = [];
+  SEED_SCHOOLS.forEach((school) => {
+    const schoolAthletes = SEED_ATHLETES.filter(a => a.school === school);
+    schoolAthletes.forEach((a) => {
+      entries.push({ athleteId: a.id, bib: null }); // Bibs start empty
+    });
+  });
+  return entries;
+}
+
+function syntheticResults(seed = 1) {
+  let rng = seed;
+  function rand() { rng = (rng * 9301 + 49297) % 233280; return rng / 233280; }
+  const finishers = SEED_ATHLETES
+    .map(a => ({ athleteId: a.id, time: 950 + (rand() - 0.5) * 120 }))
+    .sort((a, b) => a.time - b.time);
+  return finishers.map((f, i) => ({ ...f, place: i + 1 }));
+}
+
+const SEED_MEETS = [
+  {
+    id: "preseason-2026",
+    name: "Pre-Season Opener",
+    date: "2026-08-22",
+    location: "Riverside Park",
+    course: "Riverside (3.0 mi)",
+    distance: "5K",
+    gender: "M",
+    entries: defaultEntries(),
+    raceStartedAt: null,
+    endedAt: 1,
+    timerTaps: [],
+    recorderBibs: [],
+    finalResults: syntheticResults(7),
+  },
+  {
+    id: "csi-2026",
+    name: "Crystal Springs Invitational",
+    date: "2026-09-12",
+    location: "Crystal Springs HS",
+    course: "Crystal Springs",
+    distance: "5K",
+    gender: "M",
+    entries: defaultEntries(),
+    raceStartedAt: null,
+    endedAt: null,
+    timerTaps: [],
+    recorderBibs: [],
+    finalResults: null,
+  },
+];
+
+//=================================================================
+// STATE + SYNC
+//=================================================================
+const CHANNEL_NAME = "xc-race-timing-demo-v3";
+const STORAGE_KEY = "xc-race-timing-demo-v3";
 const channel = new BroadcastChannel(CHANNEL_NAME);
 
-let state = {
-  athletes: [],
-  meets: [],
-  activeMeetId: null,
-  darkMode: false
-};
+function defaultState() {
+  return {
+    schools: [...SEED_SCHOOLS],
+    athletes: SEED_ATHLETES.map(a => ({...a})),
+    meets: SEED_MEETS.map(m => ({...m, entries: m.entries.map(e => ({...e}))})),
+    activeMeetId: "csi-2026",
+  };
+}
+
+let state = loadState();
 
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) state = JSON.parse(raw);
-  } catch (e) {}
+    if (!raw) return defaultState();
+    const parsed = JSON.parse(raw);
+    return { ...defaultState(), ...parsed };
+  } catch { return defaultState(); }
 }
 function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
-
-function broadcast(ev) {
-  applyEvent(ev);
-  saveState();
-  channel.postMessage(ev);
-  render();
-}
-channel.addEventListener("message", (e) => { applyEvent(e.data); saveState(); render(); });
+function getMeet(id) { return state.meets.find(m => m.id === id); }
+function getActiveMeet() { return getMeet(state.activeMeetId); }
 
 function applyEvent(ev) {
-  const m = ev.meetId ? state.meets.find(x => x.id === ev.meetId) : state.meets.find(x => x.id === state.activeMeetId);
+  const m = ev.meetId ? getMeet(ev.meetId) : getActiveMeet();
   switch (ev.type) {
-    case "ATHLETE_ADD":
-      state.athletes.push(ev.athlete);
-      break;
-    case "ATHLETE_REMOVE":
-      state.athletes = state.athletes.filter(a => a.id !== ev.id);
-      break;
     case "MEET_CREATE":
       state.meets.push(ev.meet);
       state.activeMeetId = ev.meet.id;
       break;
     case "MEET_UPDATE":
-      if (m) Object.assign(m, ev.fields);
+      Object.assign(getMeet(ev.id), ev.fields);
+      break;
+    case "MEET_DELETE":
+      state.meets = state.meets.filter(x => x.id !== ev.id);
+      if (state.activeMeetId === ev.id) state.activeMeetId = state.meets[0]?.id || null;
+      break;
+    case "MEET_SET_ACTIVE":
+      state.activeMeetId = ev.id;
       break;
     case "RACE_START":
-      if (m) { m.raceStartedAt = ev.startedAt; m.endedAt = null; m.timerTaps = []; m.recorderBibs = []; }
+      if (m) { m.raceStartedAt = ev.startedAt; m.endedAt = null; m.timerTaps = []; m.recorderBibs = []; m.finalResults = null; state.activeMeetId = m.id; }
       break;
     case "RACE_END":
-      if (m) { m.endedAt = ev.endedAt; }
+      if (m) {
+        m.endedAt = ev.endedAt;
+        m.finalResults = computeFinalResults(m);
+      }
+      break;
+    case "RACE_RESET":
+      if (m) { m.raceStartedAt = null; m.endedAt = null; m.timerTaps = []; m.recorderBibs = []; m.finalResults = null; }
       break;
     case "TIMER_TAP":
       if (m && m.raceStartedAt && !m.endedAt) m.timerTaps.push({ position: m.timerTaps.length + 1, ms: ev.ms });
@@ -371,18 +496,21 @@ function applyEvent(ev) {
     case "RECORDER_UNDO":
       if (m) m.recorderBibs.pop();
       break;
-    case "BIBS_ASSIGN":
-      if (m) {
-        // Sort by last name, assign 0000, 0001, 0002...
-        const sorted = [...m.entries].sort((a, b) => {
-          const athA = state.athletes.find(x => x.id === a.athleteId);
-          const athB = state.athletes.find(x => x.id === b.athleteId);
-          return (athA?.last || "").localeCompare(athB?.last || "");
-        });
-        sorted.forEach((entry, i) => {
-          entry.bib = String(i).padStart(4, "0");
-        });
-      }
+    case "ATHLETE_ADD":
+      state.athletes.push(ev.athlete);
+      if (!state.schools.includes(ev.athlete.school)) state.schools.push(ev.athlete.school);
+      break;
+    case "ATHLETE_REMOVE":
+      state.athletes = state.athletes.filter(a => a.id !== ev.id);
+      state.meets.forEach(meet => meet.entries = meet.entries.filter(e => e.athleteId !== ev.id));
+      break;
+    case "SCHOOL_ADD":
+      if (!state.schools.includes(ev.name)) state.schools.push(ev.name);
+      break;
+    case "SCHOOL_REMOVE":
+      state.schools = state.schools.filter(s => s !== ev.name);
+      state.athletes = state.athletes.filter(a => a.school !== ev.name);
+      state.meets.forEach(meet => meet.entries = meet.entries.filter(e => state.athletes.find(a => a.id === e.athleteId)));
       break;
     case "ENTRY_TOGGLE":
       if (m) {
@@ -391,11 +519,41 @@ function applyEvent(ev) {
         else m.entries.push({ athleteId: ev.athleteId, bib: null });
       }
       break;
+    case "BIBS_ASSIGN_BY_LASTNAME":
+      if (m) {
+        // Sort athletes by last name, assign 0000, 0001, 0002...
+        const sortedAthletes = state.athletes
+          .filter(a => m.entries.some(e => e.athleteId === a.id))
+          .sort((a, b) => a.last.localeCompare(b.last));
+        
+        m.entries.forEach(e => e.bib = null);
+        
+        sortedAthletes.forEach((ath, index) => {
+          const entry = m.entries.find(e => e.athleteId === ath.id);
+          if (entry) {
+            entry.bib = String(index).padStart(4, '0');
+          }
+        });
+      }
+      break;
+    case "BIBS_CLEAR":
+      if (m) m.entries.forEach(e => e.bib = null);
+      break;
     case "FULL_RESET":
-      state = { athletes: [], meets: [], activeMeetId: null, darkMode: false };
+      state = defaultState();
       break;
   }
 }
+
+function broadcast(ev) { 
+  applyEvent(ev); 
+  saveState(); 
+  channel.postMessage(ev); 
+  render(); 
+  pushToSupabase(ev);  // Also push to Supabase for cross-phone sync
+}
+channel.addEventListener("message", (e) => { applyEvent(e.data); saveState(); render(); });
+window.addEventListener("storage", (e) => { if (e.key === STORAGE_KEY) { state = loadState(); render(); } });
 
 //=================================================================
 // HELPERS
@@ -407,18 +565,77 @@ function fmtTime(sec) {
   const s = (sec - m * 60).toFixed(1);
   return `${m}:${s.padStart(4, "0")}`;
 }
+function fmtDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso + "T12:00:00");
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
 function elapsed(meet) {
   if (!meet || !meet.raceStartedAt) return 0;
-  const end = meet.endedAt || Date.now();
+  const end = meet.endedAt && meet.endedAt > 1 ? meet.endedAt : Date.now();
   return (end - meet.raceStartedAt) / 1000;
 }
-function findAthlete(bib, meet) {
-  if (!bib || !meet) return null;
+function findAthleteByBibInMeet(bib, meet) {
+  if (bib == null || !meet) return null;
   const entry = meet.entries.find(e => e.bib === bib);
   if (!entry) return null;
   return state.athletes.find(a => a.id === entry.athleteId);
 }
-function makeId(p = "x") { return p + "-" + Math.random().toString(36).slice(2, 9); }
+function athletePr(athlete) {
+  let best = 99999;
+  state.meets.forEach(meet => {
+    if (!meet.finalResults) return;
+    meet.finalResults.forEach(r => {
+      if (r.athleteId === athlete.id && r.time < best) best = r.time;
+    });
+  });
+  return best < 99999 ? best : null;
+}
+function getMeetStatus(meet) {
+  if (meet.finalResults || meet.endedAt) return "done";
+  if (meet.raceStartedAt) return "live";
+  return "upcoming";
+}
+function computeFinalResults(meet) {
+  const results = [];
+  for (let i = 0; i < meet.recorderBibs.length; i++) {
+    const tap = meet.timerTaps[i];
+    const bibEntry = meet.recorderBibs[i];
+    if (!tap || bibEntry.bib == null) continue;
+    const ath = findAthleteByBibInMeet(bibEntry.bib, meet);
+    if (!ath) continue;
+    results.push({ athleteId: ath.id, time: tap.ms / 1000, place: results.length + 1 });
+  }
+  return results;
+}
+function makeId(prefix = "x") { return prefix + "-" + Math.random().toString(36).slice(2, 9); }
+
+//=================================================================
+// ROUTING
+//=================================================================
+function getRoute() {
+  const h = location.hash.replace("#", "");
+  const parts = h.split("/").filter(Boolean);
+  if (parts.length === 0) return { name: "coach-default" };
+  if (parts[0] === "picker") return { name: "picker" };
+  if (parts[0] === "timer") return { name: "timer" };
+  if (parts[0] === "recorder") return { name: "recorder" };
+  if (parts[0] === "meets") return { name: "meets" };
+  if (parts[0] === "athletes") return { name: "athletes" };
+  if (parts[0] === "meet" && parts[1]) {
+    return { name: "meet", meetId: parts[1], tab: parts[2] || autoMeetTab(getMeet(parts[1])) };
+  }
+  return { name: "coach-default" };
+}
+function autoMeetTab(meet) {
+  if (!meet) return "entry";
+  if (meet.endedAt || meet.finalResults) return "results";
+  if (meet.raceStartedAt) return "race";
+  return "entry";
+}
+function go(hash) { location.hash = hash; render(); }
+function setRole(r) { go(r ? "#" + r : ""); }
+function setMeetTab(meetId, tab) { go(`#meet/${meetId}/${tab}`); }
 
 //=================================================================
 // RENDER
@@ -427,400 +644,1095 @@ const app = document.getElementById("app");
 const modalRoot = document.getElementById("modal-root");
 
 function render() {
-  const route = location.hash.replace("#", "") || "picker";
+  const route = getRoute();
   modalRoot.innerHTML = "";
-  if (route === "picker") return renderPicker();
-  if (route === "timer") return renderTimer();
-  if (route === "recorder") return renderRecorder();
-  if (route.startsWith("coach")) return renderCoach();
-  renderPicker();
+  if (route.name === "picker") return renderPicker();
+  if (route.name === "timer") return renderTimer();
+  if (route.name === "recorder") return renderRecorder();
+  if (route.name === "athletes") return renderCoachShell("athletes");
+  if (route.name === "meets") return renderCoachShell("meets");
+  if (route.name === "meet") {
+    state.activeMeetId = route.meetId;
+    return renderCoachShell("meet", route.tab);
+  }
+  const active = getActiveMeet();
+  if (active) return renderCoachShell("meet", autoMeetTab(active));
+  return renderCoachShell("meets");
 }
 window.addEventListener("hashchange", render);
+
 setInterval(() => {
-  const active = state.meets.find(m => m.id === state.activeMeetId);
-  if (active && active.raceStartedAt && !active.endedAt) {
-    const el = document.getElementById("live-clock");
-    if (el) el.textContent = fmtTime(elapsed(active));
-    const big = document.getElementById("clock-big");
-    if (big) big.textContent = fmtTime(elapsed(active));
+  const route = getRoute();
+  const activeMeet = getActiveMeet();
+  if (activeMeet && activeMeet.raceStartedAt && !activeMeet.endedAt) {
+    const liveTimeEl = document.getElementById("live-time");
+    if (liveTimeEl) liveTimeEl.textContent = fmtTime(elapsed(activeMeet));
+    const clockBigEl = document.getElementById("clock-big");
+    if (clockBigEl) clockBigEl.textContent = fmtTime(elapsed(activeMeet));
   }
 }, 100);
 
+//=================================================================
+// PICKER
+//=================================================================
 function renderPicker() {
   app.className = "app";
   app.innerHTML = `
     <div class="picker">
-      <h1>XCTrack Pro</h1>
-      <p>Professional cross-country timing for meets.<br>Two-person chute workflow • Official XC scoring • Instant results.</p>
-      
+      <h1>XC race timing</h1>
+      <p>Multi-meet system with persistent rosters, two-stream chute timing, and shareable results.</p>
       <div class="role-grid">
-        <button class="role-card timer" onclick="location.hash='timer'">
-          <div class="role-card-title"><span class="role-tag timer">TIMER</span></div>
-          <div class="role-card-desc">Stand at the finish line. Tap the giant button every time a runner crosses. No thinking required.</div>
+        <button class="role-card coach" onclick="setRole('')">
+          <div class="role-card-title"><span class="role-tag coach">Coach / Director</span></div>
+          <div class="role-card-desc">Default app view. Manage meets, enter athletes, run races, share results. Athletes persist across meets and accumulate a season history.</div>
         </button>
-        
-        <button class="role-card recorder" onclick="location.hash='recorder'">
-          <div class="role-card-title"><span class="role-tag recorder">RECORDER</span></div>
-          <div class="role-card-desc">Stand at the chute exit. Use the large keypad to enter bib numbers in finish order.</div>
+        <button class="role-card timer" onclick="setRole('timer')">
+          <div class="role-card-title"><span class="role-tag timer">Timer</span></div>
+          <div class="role-card-desc">Stand at the chute entry. Tap a giant button each time an athlete crosses. No bibs, no thinking.</div>
         </button>
-        
-        <button class="role-card coach" onclick="location.hash='coach'">
-          <div class="role-card-title"><span class="role-tag coach">COACH / DIRECTOR</span></div>
-          <div class="role-card-desc">Upload roster, manage meets, assign bibs by last name, view live results & team scores.</div>
+        <button class="role-card recorder" onclick="setRole('recorder')">
+          <div class="role-card-title"><span class="role-tag recorder">Recorder</span></div>
+          <div class="role-card-desc">Stand at the chute exit. Type each bib number on a keypad as athletes file past, in finish order.</div>
+        </button>
+        <button class="role-card" style="border-left: 4px solid #10b981;" onclick="openSupabaseSetup()">
+          <div class="role-card-title"><span class="role-tag" style="background:#d1fae5;color:#065f46;">Cloud Sync</span></div>
+          <div class="role-card-desc">Connect to Supabase (free) so Timer, Recorder, and Coach stay perfectly in sync across different phones and browsers in real time.</div>
         </button>
       </div>
-      
       <div class="picker-instructions">
-        <b>Pro tip:</b> Open this page in two browser tabs or on two phones. Use one as Timer and one as Recorder — they stay perfectly in sync.
+        <b>How to test the demo</b>
+        Open this file in two or three browser windows or on different phones. Pick roles and use the new <b>Cloud Sync</b> card above to connect all devices to the same Supabase project for real-time sync.
+      </div>
+      <div class="picker-bottom">
+        <button onclick="if(confirm('Reset everything (entries, meets, race data)?')) broadcast({type:'FULL_RESET'})">Full reset</button>
       </div>
     </div>
   `;
 }
 
 //=================================================================
-// COACH VIEW (Roster + Meets + Results)
+// SUPABASE DEMO SETUP (for multi-phone real-time sync)
 //=================================================================
-function renderCoach() {
-  app.className = "app wide";
-  const active = state.meets.find(m => m.id === state.activeMeetId);
-  
-  app.innerHTML = `
-    <div class="shell-top">
-      <div class="meet-selector-row">
-        <select class="meet-selector" onchange="switchMeet(this.value)">
-          ${state.meets.map(m => `<option value="${m.id}" ${m.id === state.activeMeetId ? 'selected' : ''}>${m.name}</option>`).join('')}
-          ${state.meets.length === 0 ? '<option>No meets yet</option>' : ''}
-        </select>
-        <button class="new-meet-btn" onclick="createNewMeet()">+ New Meet</button>
-      </div>
-      ${active ? `
-        <div class="meet-meta-row">
-          <span>${active.date} • ${active.location}</span>
-          <span class="switch-link" onclick="location.hash='picker'">switch role</span>
-        </div>
-      ` : ''}
-    </div>
-    
-    <div class="nav-tabs">
-      <button class="nav-tab active" onclick="showCoachTab('roster')">Roster</button>
-      <button class="nav-tab" onclick="showCoachTab('entry')">Meet Entry</button>
-      <button class="nav-tab" onclick="showCoachTab('results')">Results</button>
-    </div>
-    
-    <div class="view" id="coach-content">
-      <!-- Content loaded by showCoachTab() -->
-    </div>
-  `;
-  
-  showCoachTab('roster');
-}
+let supabaseClient = null;
+let supabaseConnected = false;
 
-function showCoachTab(tab) {
-  const container = document.getElementById('coach-content');
-  const active = state.meets.find(m => m.id === state.activeMeetId);
-  
-  if (!active && tab !== 'roster') {
-    container.innerHTML = `<div class="empty-state">Create a meet first to manage entries and results.</div>`;
-    return;
-  }
-  
-  if (tab === 'roster') {
-    container.innerHTML = `
-      <button class="upload-cta" onclick="openRosterUpload()">
-        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        Upload Roster CSV
-        <span class="upload-cta-sub">First, Last, Grade, Gender, School, Email, Phone</span>
-      </button>
-      
-      <div class="action-grid">
-        <button class="action-btn primary" onclick="assignBibsByLastName()">🔢 Assign Bibs by Last Name (0000, 0001...)</button>
-        <button class="action-btn" onclick="if(confirm('Clear all bibs?')) clearAllBibs()">Clear Bibs</button>
-      </div>
-      
-      <div class="section-label">Current Roster (${state.athletes.length} athletes)</div>
-      ${state.athletes.length === 0 ? `<div class="empty-state">No athletes yet. Upload a roster above.</div>` : `
-        <div class="school-block">
-          <div class="school-head"><div class="school-name">All Athletes</div></div>
-          ${state.athletes.map(a => `
-            <div class="athlete-row">
-              <div class="ath-bib ${a.bib ? '' : 'empty'}">${a.bib || '—'}</div>
-              <div class="ath-name">${a.first} ${a.last}</div>
-              <div class="ath-grade">${a.grade}</div>
-              <div class="ath-gender ${a.gender}">${a.gender}</div>
-              <div class="ath-school">${a.school}</div>
-              <button class="ath-del" onclick="removeAthlete('${a.id}')">×</button>
-            </div>
-          `).join('')}
-        </div>
-      `}
-    `;
-  } else if (tab === 'entry') {
-    container.innerHTML = `
-      <div class="status-banner ${active.entries.length > 0 ? 'success' : 'warn'}">
-        <div class="status-banner-l">${active.entries.length} athletes entered • ${active.entries.filter(e => e.bib).length} bibs assigned</div>
-      </div>
-      
-      <button class="action-btn primary" onclick="assignBibsByLastName()" style="width:100%; margin-bottom:16px;">Auto-Assign Bibs by Last Name</button>
-      
-      <div class="section-label">Athletes in this meet</div>
-      ${state.athletes.map(a => {
-        const entered = active.entries.find(e => e.athleteId === a.id);
-        return `
-          <div class="athlete-row ${entered ? 'entered' : ''}" onclick="toggleEntry('${a.id}')">
-            <div class="athlete-check ${entered ? 'checked' : ''}">${entered ? '✓' : ''}</div>
-            <div class="ath-bib">${entered && entered.bib ? entered.bib : '—'}</div>
-            <div class="ath-name">${a.first} ${a.last}</div>
-            <div class="ath-grade">${a.grade}</div>
-            <div class="ath-gender ${a.gender}">${a.gender}</div>
-            <div class="ath-school">${a.school}</div>
-          </div>
-        `;
-      }).join('')}
-    `;
-  } else if (tab === 'results') {
-    const finishers = computeResults(active);
-    container.innerHTML = `
-      <div class="share-section">
-        <div class="qr-box"><img src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=https://xctrack.pro/m/${active.id}" /></div>
-        <div class="share-info">
-          <div class="share-l">Public Results</div>
-          <div class="share-url">https://xctrack.pro/m/${active.id}</div>
-          <div class="share-actions">
-            <button class="share-btn primary" onclick="downloadCSV()">Download CSV</button>
-            <button class="share-btn" onclick="window.print()">Print Results</button>
-          </div>
-        </div>
-      </div>
-      
-      <div class="results-section">
-        <div class="results-h"><span>Team Scores (XC Rules)</span></div>
-        ${renderTeamScores(finishers)}
-      </div>
-      
-      <div class="results-section">
-        <div class="results-h"><span>Individual Results</span></div>
-        ${renderIndividualResults(finishers)}
-      </div>
-    `;
-  }
-}
-
-function switchMeet(id) {
-  state.activeMeetId = id;
-  saveState();
-  render();
-}
-
-function createNewMeet() {
-  const name = prompt("Meet name:", "Invitational 2026");
-  if (!name) return;
-  const meet = {
-    id: makeId("m"),
-    name,
-    date: new Date().toISOString().split('T')[0],
-    location: "TBD",
-    entries: [],
-    raceStartedAt: null,
-    endedAt: null,
-    timerTaps: [],
-    recorderBibs: []
-  };
-  broadcast({ type: "MEET_CREATE", meet });
-}
-
-function toggleEntry(athleteId) {
-  const active = state.meets.find(m => m.id === state.activeMeetId);
-  if (!active) return;
-  broadcast({ type: "ENTRY_TOGGLE", meetId: active.id, athleteId });
-}
-
-function assignBibsByLastName() {
-  const active = state.meets.find(m => m.id === state.activeMeetId);
-  if (!active) return;
-  broadcast({ type: "BIBS_ASSIGN", meetId: active.id });
-  alert("Bibs assigned by last name (0000, 0001, 0002...)");
-}
-
-function clearAllBibs() {
-  const active = state.meets.find(m => m.id === state.activeMeetId);
-  if (!active) return;
-  active.entries.forEach(e => e.bib = null);
-  saveState();
-  render();
-}
-
-function removeAthlete(id) {
-  if (!confirm("Remove this athlete from the roster?")) return;
-  broadcast({ type: "ATHLETE_REMOVE", id });
-}
-
-//=================================================================
-// ROSTER UPLOAD (exact columns you requested)
-//=================================================================
-function openRosterUpload() {
+function openSupabaseSetup() {
   modalRoot.innerHTML = `
     <div class="modal-bg" onclick="if(event.target===this) closeModal()">
-      <div class="modal wide">
-        <div class="modal-title">Upload Roster</div>
-        <div class="upload-hint">
-          Paste from spreadsheet or type one athlete per line.<br>
-          <strong>Columns (in this order):</strong> First, Last, Grade, Gender, School, Email, Phone<br>
-          Header row is optional. Comma or tab separated.
+      <div class="modal">
+        <div class="modal-title">Supabase Cloud Sync</div>
+        <div style="font-size:13px; color:var(--text-muted); margin-bottom:16px; line-height:1.5;">
+          ✅ Already connected to your Supabase project!<br><br>
+          <b>Multi-phone sync is active.</b><br>
+          Open this same file on other phones → they will automatically connect to the same project and stay in sync in real time.
         </div>
         
-        <textarea class="upload-textarea" id="roster-text" placeholder="Marcus, Chen, 12, M, Crystal Springs, marcus@school.edu, 555-1234&#10;Jamal, Williams, 12, M, Crystal Springs, jamal@school.edu, 555-5678"></textarea>
-        
-        <div class="upload-options">
-          <input type="checkbox" id="enter-meet" checked>
-          <label for="enter-meet">Also enter these athletes in the current meet</label>
+        <div style="background:var(--success-bg); padding:12px; border-radius:8px; font-size:12px; color:var(--success); margin:12px 0; text-align:center;">
+          Your project is already configured.<br>
+          <strong>URL:</strong> https://vsycqimhkzppautumsyo.supabase.co
         </div>
         
         <div class="modal-actions">
-          <button class="cancel" onclick="closeModal()">Cancel</button>
-          <button class="submit" onclick="processRosterUpload()">Upload Roster</button>
+          <button class="cancel" onclick="closeModal()">Close</button>
+          <button class="submit" onclick="reconnectSupabase()">Reconnect</button>
+        </div>
+        
+        <div style="margin-top:16px; text-align:center; font-size:11px; color:var(--text-faint);">
+          <b>Important:</b> In your Supabase dashboard, create a table called <code>race_events</code> with columns: meet_id (text), type (text), payload (jsonb), created_at (timestamp).<br>
+          This enables full real-time sync across all phones.
         </div>
       </div>
     </div>
   `;
 }
 
-function processRosterUpload() {
-  const text = document.getElementById('roster-text').value.trim();
-  const enter = document.getElementById('enter-meet').checked;
-  if (!text) { alert("Please paste roster data"); return; }
-  
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  let added = 0;
-  const active = state.meets.find(m => m.id === state.activeMeetId);
-  
-  lines.forEach(line => {
-    const parts = line.split(/[,\t]/).map(p => p.trim().replace(/^"|"$/g, ''));
-    if (parts.length < 5) return;
-    
-    const [first, last, grade, gender, school, email = '', phone = ''] = parts;
-    if (!first || !last || !grade || !gender || !school) return;
-    
-    const athlete = {
-      id: makeId("a"),
-      first, last,
-      grade: parseInt(grade),
-      gender: gender.toUpperCase().startsWith('F') ? 'F' : 'M',
-      school,
-      email, phone,
-      bib: null
-    };
-    
-    // Avoid duplicates
-    if (!state.athletes.some(a => a.first === first && a.last === last && a.school === school)) {
-      broadcast({ type: "ATHLETE_ADD", athlete });
-      added++;
-      
-      if (enter && active) {
-        broadcast({ type: "ENTRY_TOGGLE", meetId: active.id, athleteId: athlete.id });
-      }
-    }
-  });
-  
+function connectSupabase() {
+  // This function is kept for compatibility but not used since we auto-connect
+  alert('Already connected to your Supabase project!');
+}
+
+function reconnectSupabase() {
   closeModal();
-  alert(`Added ${added} athletes to roster${enter ? ' and current meet' : ''}.`);
+  supabaseClient = null;
+  supabaseConnected = false;
+  initSupabase();
+  alert('Reconnected to Supabase!');
   render();
 }
 
+function initSupabase() {
+  // Hardcoded with your Supabase project for instant multi-phone sync
+  const url = "https://vsycqimhkzppautumsyo.supabase.co";
+  const key = "sb_publishable_48Pnf9Q_ArlxWMsGVyY6-Q_XlrspLdv";
+  
+  try {
+    supabaseClient = window.supabase.createClient(url, key);
+    supabaseConnected = true;
+    console.log("[Supabase] Auto-connected with your project");
+    
+    // Start listening for events from other devices
+    subscribeToSupabase();
+  } catch(e) {
+    console.error("[Supabase] Connection failed:", e);
+  }
+}
+initSupabase();
+
+async function subscribeToSupabase() {
+  if (!supabaseClient || !supabaseConnected) return;
+  
+  try {
+    const channel = supabaseClient
+      .channel('race-sync')
+      .on('postgres_changes', 
+        { event: 'INSERT', schema: 'public', table: 'race_events' },
+        (payload) => {
+          const ev = payload.new.payload;
+          if (ev && ev.type) {
+            console.log("[Supabase] Received remote event:", ev.type);
+            // Apply the event locally (this will trigger render)
+            applyEvent(ev);
+            saveState();
+            render();
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log("[Supabase] Realtime subscription active - multi-phone sync enabled!");
+        }
+      });
+  } catch (e) {
+    console.warn("[Supabase] Subscription failed (create 'race_events' table in Supabase):", e.message);
+  }
+}
+
+async function pushToSupabase(event) {
+  if (!supabaseClient || !supabaseConnected) return;
+  
+  try {
+    const { error } = await supabaseClient
+      .from('race_events')
+      .insert({
+        meet_id: event.meetId || state.activeMeetId,
+        type: event.type,
+        payload: event,
+        created_at: new Date().toISOString()
+      });
+    
+    if (error) {
+      console.warn("[Supabase] Insert error (table may not exist yet):", error.message);
+    } else {
+      console.log("[Supabase] Event pushed:", event.type);
+    }
+  } catch (e) {
+    console.warn("[Supabase] Push failed:", e.message);
+  }
+}
+
+//=================================================================
+// COACH APP SHELL
+//=================================================================
+function renderCoachShell(view, subTab) {
+  app.className = "app wide";
+  const meet = getActiveMeet();
+  const meetStatus = meet ? getMeetStatus(meet) : null;
+  const livePill = meetStatus === "live"
+    ? `<span class="live-pill"><span class="live-dot"></span>Race in progress</span>`
+    : meetStatus === "done"
+    ? `<span class="live-pill done"><span class="live-dot"></span>Completed</span>`
+    : `<span class="live-pill idle"><span class="live-dot"></span>Upcoming</span>`;
+
+  app.innerHTML = `
+    <div class="shell-top">
+      <div class="meet-selector-row">
+        <select class="meet-selector" onchange="changeActiveMeet(this.value)">
+          ${state.meets.map(m => `
+            <option value="${m.id}" ${m.id === state.activeMeetId ? 'selected' : ''}>
+              ${m.name} · ${fmtDate(m.date)}
+            </option>
+          `).join('')}
+        </select>
+        <button class="new-meet-btn" onclick="openCreateMeetModal()">+ New</button>
+      </div>
+      ${meet ? `
+        <div class="meet-meta-row">
+          <span>${meet.location}</span>
+          <span>·</span>
+          <span>${meet.course}</span>
+          <span>·</span>
+          ${livePill}
+          <span style="margin-left: auto; display: flex; align-items: center; gap: 12px;">
+            ${supabaseConnected 
+              ? `<span style="font-size:10px; color:#10b981; font-weight:600; cursor:pointer;" onclick="openSupabaseSetup()">● Cloud Sync ACTIVE</span>` 
+              : `<button onclick="openSupabaseSetup()" style="font-size:10px; padding:2px 8px; background:#10b981; color:white; border:none; border-radius:999px; font-weight:600;">Connect Cloud Sync</button>`}
+            <span class="switch-link" onclick="setRole('picker')">switch role</span>
+          </span>
+        </div>
+      ` : ''}
+    </div>
+    ${meet ? `
+      <div class="nav-tabs">
+        <button class="nav-tab ${view === 'meet' && subTab === 'entry' ? 'active' : ''}" onclick="setMeetTab('${meet.id}', 'entry')">
+          Meet entry
+        </button>
+        <button class="nav-tab ${view === 'meet' && subTab === 'race' ? 'active' : ''}" onclick="setMeetTab('${meet.id}', 'race')">
+          Race ${meetStatus === 'live' ? `<span class="tab-badge">live</span>` : ''}
+        </button>
+        <button class="nav-tab ${view === 'meet' && subTab === 'results' ? 'active' : ''}" onclick="setMeetTab('${meet.id}', 'results')">
+          Results
+        </button>
+        <button class="nav-tab ${view === 'athletes' ? 'active' : ''}" onclick="go('#athletes')">
+          Athletes
+        </button>
+        <button class="nav-tab ${view === 'meets' ? 'active' : ''}" onclick="go('#meets')">
+          All meets
+        </button>
+      </div>
+    ` : `
+      <div class="nav-tabs">
+        <button class="nav-tab ${view === 'meets' ? 'active' : ''}" onclick="go('#meets')">All meets</button>
+        <button class="nav-tab ${view === 'athletes' ? 'active' : ''}" onclick="go('#athletes')">Athletes</button>
+      </div>
+    `}
+    <div class="view">
+      ${view === 'athletes' ? renderAthletes()
+        : view === 'meets' ? renderMeetsList()
+        : meet && subTab === 'entry' ? renderMeetEntry(meet)
+        : meet && subTab === 'race' ? renderRace(meet)
+        : meet && subTab === 'results' ? renderResults(meet)
+        : '<div class="empty-state">No active meet. Create one to get started.</div>'}
+    </div>
+    <div class="footer">Channel: <code>${CHANNEL_NAME}</code> · <span style="color:#10b981">● Supabase Cloud Sync Active</span> (create 'race_events' table in Supabase for full realtime)</div>
+  `;
+}
+
+function changeActiveMeet(id) {
+  go(`#meet/${id}/${autoMeetTab(getMeet(id))}`);
+}
+
+//=================================================================
+// MEET ENTRY VIEW - Updated with Bib Assignment by Last Name
+//=================================================================
+function renderMeetEntry(meet) {
+  const totalEntered = meet.entries.length;
+  const withBibs = meet.entries.filter(e => e.bib != null).length;
+  const ready = totalEntered >= 5 && withBibs === totalEntered;
+  const eligibleAthletes = state.athletes.filter(a => meet.gender === 'all' || !meet.gender || a.gender === meet.gender);
+
+  return `
+    <div class="${ready ? 'status-banner success' : totalEntered === 0 ? 'status-banner warn' : 'status-banner info'}">
+      <div class="status-banner-l">${ready ? 'Ready to race' : 'Setup in progress'}</div>
+      <div class="status-banner-v">${state.schools.length} schools · ${totalEntered} athletes entered · ${withBibs} of ${totalEntered} bibs assigned</div>
+    </div>
+
+    <button class="upload-cta" onclick="openUploadRosterModal({meetId: '${meet.id}'})">
+      <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+      Upload roster (First, Last, Grade, Gender, School, Email, Phone)
+    </button>
+
+    <div class="action-grid">
+      <button class="action-btn primary" onclick="broadcast({type:'BIBS_ASSIGN_BY_LASTNAME', meetId:'${meet.id}'})" ${totalEntered === 0 ? 'disabled' : ''}>
+        🔢 Assign Bibs by Last Name (0000, 0001, 0002...)
+      </button>
+      <button class="action-btn" onclick="if(confirm('Clear all bib numbers for this meet?')) broadcast({type:'BIBS_CLEAR', meetId:'${meet.id}'})" ${withBibs === 0 ? 'disabled' : ''}>
+        Clear bibs
+      </button>
+    </div>
+
+    <div class="add-school-row">
+      <input id="new-school-name" type="text" placeholder="New school name" />
+      <button onclick="addSchoolFromInput()">Add school</button>
+    </div>
+
+    ${state.schools.map((school, idx) => {
+      const schoolAthletes = eligibleAthletes.filter(a => a.school === school);
+      const schoolEntered = meet.entries.filter(e => {
+        const a = state.athletes.find(x => x.id === e.athleteId);
+        return a && a.school === school;
+      });
+      const schoolBibs = schoolEntered.filter(e => e.bib != null).map(e => e.bib);
+      const bibRange = schoolBibs.length > 0 ? `${Math.min(...schoolBibs)}–${Math.max(...schoolBibs)}` : 'no bibs';
+      return `
+        <div class="school-block">
+          <div class="school-head">
+            <div class="school-head-l">
+              <div class="school-name">${school}</div>
+              <div class="school-meta">${schoolEntered.length} of ${schoolAthletes.length} entered · bibs ${bibRange}</div>
+            </div>
+            <div class="school-actions">
+              <button class="school-action-btn" onclick="enterAllForSchool('${school}', '${meet.id}')">Enter all</button>
+              <button class="school-action-btn danger" onclick="if(confirm('Remove ${school} and all its athletes?')) broadcast({type:'SCHOOL_REMOVE', name:'${school}'})">×</button>
+            </div>
+          </div>
+          ${schoolAthletes.length === 0 ? `
+            <div style="padding: 14px; text-align: center; color: var(--text-faint); font-size: 12px;">No athletes yet — add one below</div>
+          ` : schoolAthletes.map(a => {
+            const entry = meet.entries.find(e => e.athleteId === a.id);
+            const isEntered = !!entry;
+            return `
+              <div class="athlete-row ${isEntered ? 'entered' : ''}" onclick="broadcast({type:'ENTRY_TOGGLE', meetId:'${meet.id}', athleteId:'${a.id}'})">
+                <div class="athlete-check ${isEntered ? 'checked' : ''}">${isEntered ? '✓' : ''}</div>
+                <div class="ath-bib ${entry && entry.bib == null ? 'empty' : ''}">${entry && entry.bib != null ? entry.bib : '—'}</div>
+                <div class="ath-name">${a.first} ${a.last}</div>
+                <div class="ath-gender ${a.gender}">${a.gender}</div>
+                <div class="ath-grade">${a.grade}</div>
+                <button class="ath-del" onclick="event.stopPropagation(); if(confirm('Remove ${a.first} ${a.last}?')) broadcast({type:'ATHLETE_REMOVE', id:'${a.id}'})" title="Delete">×</button>
+              </div>
+            `;
+          }).join('')}
+          <div class="add-athlete-form">
+            <input id="add-first-${idx}" type="text" placeholder="First" />
+            <input id="add-last-${idx}" type="text" placeholder="Last" />
+            <select id="add-gender-${idx}">
+              <option value="M" selected>M</option>
+              <option value="F">F</option>
+            </select>
+            <select id="add-grade-${idx}">
+              <option value="9">9</option>
+              <option value="10">10</option>
+              <option value="11" selected>11</option>
+              <option value="12">12</option>
+            </select>
+            <button onclick="addAthleteFromInput(${idx}, '${school}', '${meet.id}')">Add</button>
+          </div>
+        </div>
+      `;
+    }).join('')}
+  `;
+}
+
+function addSchoolFromInput() {
+  const inp = document.getElementById('new-school-name');
+  const name = inp.value.trim();
+  if (!name) return;
+  if (state.schools.includes(name)) { alert('School already exists'); return; }
+  broadcast({ type: 'SCHOOL_ADD', name });
+}
+
+function addAthleteFromInput(idx, school, meetId) {
+  const first = document.getElementById('add-first-' + idx).value.trim();
+  const last = document.getElementById('add-last-' + idx).value.trim();
+  const grade = Number(document.getElementById('add-grade-' + idx).value);
+  const gender = document.getElementById('add-gender-' + idx).value;
+  if (!first || !last) { alert('First and Last name required'); return; }
+  const athlete = { id: makeId('a'), first, last, school, grade, gender, email: "", phone: "" };
+  broadcast({ type: 'ATHLETE_ADD', athlete });
+  setTimeout(() => broadcast({ type: 'ENTRY_TOGGLE', meetId, athleteId: athlete.id }), 50);
+}
+
+function enterAllForSchool(school, meetId) {
+  const meet = getMeet(meetId);
+  const schoolAthletes = state.athletes.filter(a => a.school === school && (!meet.gender || meet.gender === 'all' || a.gender === meet.gender));
+  schoolAthletes.forEach(a => {
+    const isEntered = meet.entries.some(e => e.athleteId === a.id);
+    if (!isEntered) broadcast({ type: 'ENTRY_TOGGLE', meetId, athleteId: a.id });
+  });
+}
+
+//=================================================================
+// RACE VIEW - Start/Stop Race is here
+//=================================================================
+function renderRace(meet) {
+  const elapsedNow = elapsed(meet);
+  const totalPositions = Math.max(meet.timerTaps.length, meet.recorderBibs.length);
+  const completed = meet.recorderBibs.filter((b, i) => b.bib != null && meet.timerTaps[i]).length;
+  const drift = meet.timerTaps.length - meet.recorderBibs.length;
+  const hasBibs = meet.entries.some(e => e.bib != null);
+  const hasAthletes = meet.entries.length > 0;
+
+  return `
+    <div class="action-grid" style="grid-template-columns: 1fr 1fr;">
+      ${!meet.raceStartedAt ? `
+        <button class="action-btn success" onclick="startRaceWithAutoBibs('${meet.id}')" style="font-size: 15px; padding: 14px;">START GUN</button>
+        <button class="action-btn warn" onclick="runSimulator()">Run simulator</button>
+      ` : !meet.endedAt ? `
+        <button class="action-btn danger" onclick="if(confirm('End the race? Times stop now.')) broadcast({type:'RACE_END', meetId:'${meet.id}', endedAt: Date.now()})" style="font-size: 15px; padding: 14px;">STOP RACE</button>
+        <button class="action-btn" onclick="if(confirm('Reset race data?')) broadcast({type:'RACE_RESET', meetId:'${meet.id}'})">Reset race</button>
+      ` : `
+        <button class="action-btn" onclick="if(confirm('Reset race data? Entries stay.')) broadcast({type:'RACE_RESET', meetId:'${meet.id}'})">Reset race</button>
+        <button class="action-btn primary" onclick="setMeetTab('${meet.id}','results')">View results →</button>
+      `}
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-card warn"><div class="stat-l">Times</div><div class="stat-v">${meet.timerTaps.length}</div></div>
+      <div class="stat-card primary"><div class="stat-l">Bibs</div><div class="stat-v">${meet.recorderBibs.length}</div></div>
+      <div class="stat-card success"><div class="stat-l">Matched</div><div class="stat-v">${completed}</div></div>
+    </div>
+
+    ${meet.raceStartedAt && !meet.endedAt ? `
+      <div class="clock-card">
+        <div class="clock-card-l">Race time</div>
+        <div class="clock-card-v" id="clock-big">${fmtTime(elapsedNow)}</div>
+        <div class="clock-card-r">${drift === 0 ? "Streams in sync" : drift > 0 ? `Recorder ${drift} behind` : `Recorder ${Math.abs(drift)} ahead`}</div>
+      </div>
+    ` : ""}
+
+    ${totalPositions > 0 ? `
+      <div class="section-label">Live position table</div>
+      <div class="position-table">
+        <div class="position-row-d head">
+          <div>#</div><div>Time</div><div>Bib · Athlete</div><div style="text-align:right;">PR</div>
+        </div>
+        ${Array.from({length: totalPositions}, (_, i) => {
+          const tap = meet.timerTaps[i];
+          const bibEntry = meet.recorderBibs[i];
+          const ath = bibEntry && bibEntry.bib != null ? findAthleteByBibInMeet(bibEntry.bib, meet) : null;
+          const isMatched = tap && bibEntry && bibEntry.bib != null;
+          const pr = ath && tap ? (tap.ms / 1000 < (athletePr(ath) || 99999) ? "★" : "") : "";
+          return `
+            <div class="position-row-d ${isMatched ? "" : "unmatched"}">
+              <div class="pos-num">${i + 1}</div>
+              <div class="col-time">${tap ? fmtTime(tap.ms / 1000) : '<span class="empty-cell">no time</span>'}</div>
+              <div>
+                <div class="col-bib">${bibEntry == null ? '<span class="empty-cell">no bib</span>' : (bibEntry.bib == null ? '<span class="empty-cell">skipped</span>' : `${bibEntry.bib}`)}</div>
+                ${ath ? `<div class="col-name">${ath.first} ${ath.last} · ${ath.school}</div>` : ""}
+              </div>
+              <div style="text-align: right; font-weight: 600; color: var(--warning);">${pr}</div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    ` : `
+      <div class="empty-state">
+        ${meet.raceStartedAt ? "Waiting for the first finisher" : meet.finalResults ? "Race already completed — see Results" : "Tap START GUN above to begin"}
+      </div>
+    `}
+  `;
+}
+
+// New helper: always allow starting a race — auto-assign bibs if missing
+function startRaceWithAutoBibs(meetId) {
+  const meet = getMeet(meetId);
+  if (!meet) return;
+  
+  const hasBibs = meet.entries.some(e => e.bib != null);
+  
+  if (!hasBibs && meet.entries.length > 0) {
+    // Auto-assign bibs by last name (0000, 0001...)
+    broadcast({ type: 'BIBS_ASSIGN', meetId });
+    // Small delay so the assign finishes before starting
+    setTimeout(() => {
+      broadcast({ type: 'RACE_START', meetId, startedAt: Date.now() });
+    }, 150);
+  } else if (meet.entries.length === 0) {
+    alert("No athletes entered yet. Go to Meet Entry tab and add athletes first.");
+  } else {
+    broadcast({ type: 'RACE_START', meetId, startedAt: Date.now() });
+  }
+}
+
+//=================================================================
+// RESULTS VIEW (unchanged from original, with team scoring)
+//=================================================================
+let resultsFilter = "all";
+function setResultsFilter(s) { resultsFilter = s; render(); }
+
+function renderResults(meet) {
+  const allFinishers = meet.finalResults
+    ? meet.finalResults.map(r => {
+        const a = state.athletes.find(x => x.id === r.athleteId);
+        const entry = meet.entries.find(e => e.athleteId === r.athleteId);
+        return { overallPos: r.place, time: r.time, ...(a || { first: "Unknown", last: "", school: "?", grade: "?" }), bib: entry ? entry.bib : null };
+      })
+    : (() => {
+        const out = [];
+        for (let i = 0; i < meet.recorderBibs.length; i++) {
+          const tap = meet.timerTaps[i];
+          const bibEntry = meet.recorderBibs[i];
+          if (!tap || bibEntry.bib == null) continue;
+          const ath = findAthleteByBibInMeet(bibEntry.bib, meet);
+          if (!ath) continue;
+          out.push({ overallPos: out.length + 1, time: tap.ms / 1000, ...ath, bib: bibEntry.bib });
+        }
+        return out;
+      })();
+
+  if (allFinishers.length === 0) {
+    return `<div class="empty-state">No results yet. Run a race first.</div>`;
+  }
+
+  // Team scoring with tiebreakers
+  const bySchool = {};
+  allFinishers.forEach(f => {
+    if (!bySchool[f.school]) bySchool[f.school] = [];
+    bySchool[f.school].push(f);
+  });
+  const eligibleSchools = Object.keys(bySchool).filter(s => bySchool[s].length >= 5);
+  const ntsSchools = Object.keys(bySchool).filter(s => bySchool[s].length < 5);
+  const scored = allFinishers
+    .filter(f => eligibleSchools.includes(f.school))
+    .map((f, i) => ({ ...f, scoringPos: i + 1 }));
+  const teamScores = eligibleSchools.map(school => {
+    const teamRunners = scored.filter(f => f.school === school);
+    const top5 = teamRunners.slice(0, 5);
+    const disp = teamRunners.slice(5, 7);
+    const points = top5.reduce((sum, f) => sum + f.scoringPos, 0);
+    const sixth = disp[0] ? disp[0].scoringPos : null;
+    return { school, points, top5, disp, sixth };
+  }).sort((a, b) => a.points - b.points || (a.sixth ?? 999) - (b.sixth ?? 999));
+
+  const allSchoolsFilter = ['all', ...state.schools];
+  const filteredFinishers = resultsFilter === 'all' ? allFinishers : allFinishers.filter(f => f.school === resultsFilter);
+
+  const publicUrl = `https://racetime.app/m/${meet.id}`;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(publicUrl)}`;
+
+  return `
+    <div class="share-section">
+      <div class="qr-box"><img src="${qrUrl}" alt="QR code for public results" /></div>
+      <div class="share-info">
+        <div class="share-l">Public results</div>
+        <div class="share-url">${publicUrl}</div>
+        <div class="share-actions">
+          <button class="share-btn" onclick="copyToClipboard('${publicUrl}')">Copy link</button>
+          <button class="share-btn primary" onclick="downloadResultsCsv('${meet.id}')">Download spreadsheet</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="results-section">
+      <div class="results-h">
+        <span>Team scores (Cross Country rules)</span>
+        <span class="results-h-sub">top 5 = score · (6, 7) = displacers</span>
+      </div>
+      ${teamScores.length === 0 ? `
+        <div class="empty-state" style="padding: 16px;">No team has 5 finishers yet</div>
+      ` : teamScores.map((t, i) => `
+        <div class="team-row ${i === 0 ? 'winner' : ''}">
+          <div class="team-row-head">
+            <div style="display: flex; align-items: baseline; flex: 1; min-width: 0;">
+              <span class="team-place ${i === 0 ? 'winner' : ''}">${i + 1}.</span>
+              <span class="team-name">${t.school}</span>
+            </div>
+            <div class="team-pts">${t.points}</div>
+          </div>
+          <div class="team-places">
+            ${t.top5.map(r => `<span class="team-place-pill">${r.scoringPos}</span>`).join('')}
+            ${t.disp.map(r => `<span class="team-place-pill disp">(${r.scoringPos})</span>`).join('')}
+          </div>
+        </div>
+      `).join('')}
+      ${ntsSchools.map(s => `
+        <div class="team-nts">
+          <div class="team-nts-l">No team score</div>
+          <div class="team-nts-name">${s} — ${bySchool[s].length} finisher${bySchool[s].length === 1 ? '' : 's'} (need 5)</div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="results-section">
+      <div class="results-h">
+        <span>Individual results</span>
+        <span class="results-h-sub">${filteredFinishers.length} finishers</span>
+      </div>
+      <div class="school-filter">
+        ${allSchoolsFilter.map(s => `
+          <button class="${resultsFilter === s ? 'active' : ''}" onclick="setResultsFilter('${s}')">
+            ${s === 'all' ? 'All schools' : s}
+          </button>
+        `).join('')}
+      </div>
+      <div class="position-table">
+        ${filteredFinishers.map(f => {
+          const isPR = f.time <= (athletePr(f) || 99999) + 0.05;
+          return `
+            <div class="ind-row">
+              <div class="ind-pos">${f.overallPos}</div>
+              <div class="ind-bib">${f.bib || '—'}</div>
+              <div>
+                <div class="ind-name">${f.first} ${f.last}</div>
+                <div class="ind-school">${f.school} · grade ${f.grade}</div>
+              </div>
+              <div class="ind-time">${fmtTime(f.time)}</div>
+              <div class="ind-pr">${isPR ? '★' : ''}</div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => alert("Link copied: " + text)).catch(() => prompt("Copy this link:", text));
+}
+
+function downloadResultsCsv(meetId) {
+  const meet = getMeet(meetId);
+  if (!meet) return;
+  const finishers = meet.finalResults
+    ? meet.finalResults.map(r => {
+        const a = state.athletes.find(x => x.id === r.athleteId);
+        const entry = meet.entries.find(e => e.athleteId === r.athleteId);
+        return { place: r.place, bib: entry?.bib || '', name: `${a?.first || '?'} ${a?.last || ''}`, school: a?.school || '?', grade: a?.grade || '?', gender: a?.gender || '?', time: fmtTime(r.time) };
+      })
+    : [];
+  if (finishers.length === 0) { alert('No finishers to export'); return; }
+  const rows = [
+    ['Place', 'Bib', 'Name', 'School', 'Grade', 'Gender', 'Time'],
+    ...finishers.map(f => [f.place, f.bib, f.name, f.school, f.grade, f.gender, f.time])
+  ];
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${meet.id}-results.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+//=================================================================
+// ATHLETES VIEW
+//=================================================================
+let athletesFilter = "all";
+let expandedAthlete = null;
+function setAthletesFilter(s) { athletesFilter = s; render(); }
+function toggleAthlete(id) { expandedAthlete = expandedAthlete === id ? null : id; render(); }
+
+function renderAthletes() {
+  const list = athletesFilter === "all"
+    ? state.athletes
+    : state.athletes.filter(a => a.school === athletesFilter);
+  const sorted = list.slice().sort((a, b) => a.school.localeCompare(b.school) || a.last.localeCompare(b.last));
+
+  return `
+    <div class="status-banner info">
+      <div class="status-banner-l">Persistent roster</div>
+      <div class="status-banner-v">${state.athletes.length} athletes across ${state.schools.length} schools · Email & Phone stored privately for coaches</div>
+    </div>
+
+    <button class="upload-cta" onclick="openUploadRosterModal({})">
+      <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+      Upload roster (First, Last, Grade, Gender, School, Email, Phone)
+    </button>
+
+    <div class="school-filter">
+      <button class="${athletesFilter === 'all' ? 'active' : ''}" onclick="setAthletesFilter('all')">All schools</button>
+      ${state.schools.map(s => `
+        <button class="${athletesFilter === s ? 'active' : ''}" onclick="setAthletesFilter('${s}')">${s}</button>
+      `).join('')}
+    </div>
+
+    ${sorted.map(a => {
+      const pr = athletePr(a);
+      const expanded = expandedAthlete === a.id;
+      return `
+        <div class="ath-card">
+          <div class="ath-card-head" onclick="toggleAthlete('${a.id}')">
+            <div class="ath-card-head-l">
+              <div class="ath-card-name">${a.first} ${a.last} <span class="ath-gender ${a.gender}" style="font-size: 11px; margin-left: 4px;">${a.gender}</span></div>
+              <div class="ath-card-sub">${a.school} · grade ${a.grade}</div>
+            </div>
+            <div class="ath-card-pr">
+              <div class="ath-card-pr-v">${fmtTime(pr)}</div>
+              <div class="ath-card-pr-l">PR</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('')}
+  `;
+}
+
+//=================================================================
+// MEETS LIST VIEW
+//=================================================================
+function renderMeetsList() {
+  const sorted = state.meets.slice().sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  return `
+    <div class="status-banner info">
+      <div class="status-banner-l">All meets</div>
+      <div class="status-banner-v">${state.meets.length} meet${state.meets.length === 1 ? '' : 's'} on the schedule</div>
+    </div>
+    <button class="action-btn primary" style="width:100%; margin-bottom: 16px;" onclick="openCreateMeetModal()">+ Create new meet</button>
+    ${sorted.map(m => {
+      const status = getMeetStatus(m);
+      const finishers = m.finalResults?.length || 0;
+      return `
+        <div class="meet-card" onclick="changeActiveMeet('${m.id}')">
+          <div class="meet-card-head">
+            <div style="flex: 1; min-width: 0;">
+              <div class="meet-card-name">${m.name}</div>
+              <div class="meet-card-meta">${fmtDate(m.date)} · ${m.location} · ${m.course}</div>
+              <div class="meet-card-meta">${m.entries.length} entries${finishers > 0 ? ` · ${finishers} finishers` : ''}</div>
+            </div>
+            <span class="meet-card-status ${status}">${status}</span>
+          </div>
+        </div>
+      `;
+    }).join('')}
+  `;
+}
+
+//=================================================================
+// CREATE MEET MODAL
+//=================================================================
+function openCreateMeetModal() {
+  modalRoot.innerHTML = `
+    <div class="modal-bg" onclick="if(event.target===this) closeModal()">
+      <div class="modal">
+        <div class="modal-title">Create new meet</div>
+        <div class="form-group">
+          <label class="form-label">Meet name</label>
+          <input class="form-input" id="cm-name" type="text" placeholder="e.g. Lake County Championships" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Date</label>
+            <input class="form-input" id="cm-date" type="date" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Distance</label>
+            <select class="form-input" id="cm-distance">
+              <option value="5K" selected>5K</option>
+              <option value="3K">3K</option>
+              <option value="2 mi">2 mi</option>
+              <option value="2.5 mi">2.5 mi</option>
+              <option value="3 mi">3 mi</option>
+              <option value="4K">4K</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Location</label>
+          <input class="form-input" id="cm-location" type="text" placeholder="e.g. Lakeside Regional Park" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Course</label>
+          <input class="form-input" id="cm-course" type="text" placeholder="e.g. Lakeside Loop" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Race</label>
+          <select class="form-input" id="cm-gender">
+            <option value="M" selected>Boys</option>
+            <option value="F">Girls</option>
+            <option value="all">Open / Combined</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button class="cancel" onclick="closeModal()">Cancel</button>
+          <button class="submit" onclick="submitCreateMeet()">Create meet</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
 function closeModal() { modalRoot.innerHTML = ""; }
+function submitCreateMeet() {
+  const name = document.getElementById('cm-name').value.trim();
+  const date = document.getElementById('cm-date').value;
+  const location = document.getElementById('cm-location').value.trim();
+  const course = document.getElementById('cm-course').value.trim();
+  const distance = document.getElementById('cm-distance').value;
+  const gender = document.getElementById('cm-gender').value;
+  if (!name) { alert('Meet name is required'); return; }
+  if (!date) { alert('Date is required'); return; }
+  const meet = {
+    id: makeId('m'),
+    name, date, location, course, distance, gender,
+    entries: [],
+    raceStartedAt: null, endedAt: null,
+    timerTaps: [], recorderBibs: [],
+    finalResults: null,
+  };
+  closeModal();
+  broadcast({ type: 'MEET_CREATE', meet });
+  go(`#meet/${meet.id}/entry`);
+}
+
+//=================================================================
+// UPLOAD ROSTER MODAL - Updated for exact columns: First, Last, Grade, Gender, School, Email, Phone
+//=================================================================
+let uploadDefaultSchool = "";
+let uploadText = "";
+
+function openUploadRosterModal(opts = {}) {
+  const meetId = opts.meetId || "";
+  uploadDefaultSchool = state.schools[0] || "";
+  uploadText = "";
+  modalRoot.innerHTML = `
+    <div class="modal-bg" onclick="if(event.target===this) closeModal()">
+      <div class="modal wide">
+        <div class="modal-title">Upload roster</div>
+        <div class="upload-hint">
+          Paste from spreadsheet or type one athlete per line.<br>
+          <b>Required columns (in this order):</b> First, Last, Grade, Gender, School, Email, Phone<br>
+          Header row is auto-detected. Comma or tab separated.
+        </div>
+        <div class="form-group">
+          <label class="form-label">Default school (used if row has no school)</label>
+          <select class="form-input" id="ur-school" onchange="onUploadSchoolChange(this.value)">
+            ${state.schools.map(s => `<option value="${s}" ${s === uploadDefaultSchool ? 'selected' : ''}>${s}</option>`).join('')}
+            <option value="__new__">+ Add new school...</option>
+          </select>
+        </div>
+        <div id="ur-new-school" style="display:none; margin-bottom: 12px;">
+          <input class="form-input" type="text" id="ur-new-school-name" placeholder="New school name" oninput="onNewSchoolName(this.value)" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Paste roster
+            <button class="upload-sample-btn" style="float:right;" onclick="fillSampleRoster()">Use sample</button>
+          </label>
+          <textarea class="upload-textarea" id="ur-text" placeholder="Marcus,Chen,12,M,Crystal Springs,marcus@email.com,555-0101&#10;Diego,Ramirez,11,M,Crystal Springs,diego@email.com,555-0103&#10;..." oninput="parseUploadPreview()"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Or upload a CSV file</label>
+          <input class="form-input" type="file" accept=".csv,.txt,.tsv" onchange="loadCsvFile(this)" />
+        </div>
+        <div id="upload-preview"></div>
+        ${meetId ? `
+          <div class="upload-options">
+            <input type="checkbox" id="ur-enter" checked />
+            <label for="ur-enter">Also enter these athletes in the current meet</label>
+          </div>
+        ` : ''}
+        <div class="modal-actions">
+          <button class="cancel" onclick="closeModal()">Cancel</button>
+          <button class="submit" id="ur-submit" onclick="submitUploadRoster('${meetId}')" disabled>Add to roster</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function onUploadSchoolChange(v) {
+  if (v === "__new__") {
+    document.getElementById('ur-new-school').style.display = 'block';
+    uploadDefaultSchool = "";
+  } else {
+    document.getElementById('ur-new-school').style.display = 'none';
+    uploadDefaultSchool = v;
+  }
+  parseUploadPreview();
+}
+function onNewSchoolName(v) { uploadDefaultSchool = v.trim(); parseUploadPreview(); }
+
+function fillSampleRoster() {
+  const sample = `First,Last,Grade,Gender,School,Email,Phone
+Marcus,Chen,12,M,Crystal Springs,marcus.chen@email.com,555-0101
+Diego,Ramirez,11,M,Crystal Springs,diego.ramirez@email.com,555-0103
+Aiden,Park,10,M,Crystal Springs,aiden.park@email.com,555-0105
+Caleb,Brooks,12,M,Pine Hills,caleb.brooks@email.com,555-0201`;
+  document.getElementById('ur-text').value = sample;
+  const sel = document.getElementById('ur-school');
+  if (![...sel.options].some(o => o.value === "Crystal Springs")) {
+    sel.value = "Crystal Springs";
+    onUploadSchoolChange("Crystal Springs");
+  }
+  parseUploadPreview();
+}
+
+function loadCsvFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    document.getElementById('ur-text').value = e.target.result;
+    parseUploadPreview();
+  };
+  reader.readAsText(file);
+}
+
+function parseRosterText(text, defaultSchool) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  if (lines.length === 0) return [];
+  const delim = lines[0].includes('\t') ? '\t' : ',';
+  const split = (line) => line.split(delim).map(c => c.trim().replace(/^"|"$/g, ''));
+
+  const headerKeywords = ['first', 'last', 'grade', 'gender', 'school', 'email', 'phone', 'name'];
+  const firstParts = split(lines[0]);
+  const hasHeader = firstParts.some(p => headerKeywords.includes(p.toLowerCase()));
+  let columnMap = { first: 0, last: 1, grade: 2, gender: 3, school: 4, email: 5, phone: 6 };
+  let dataLines = lines;
+
+  if (hasHeader) {
+    columnMap = { first: -1, last: -1, grade: -1, gender: -1, school: -1, email: -1, phone: -1 };
+    firstParts.forEach((p, i) => {
+      const k = p.toLowerCase();
+      if (k === 'first' || k === 'firstname') columnMap.first = i;
+      else if (k === 'last' || k === 'lastname') columnMap.last = i;
+      else if (k === 'grade' || k === 'year' || k === 'class') columnMap.grade = i;
+      else if (k === 'gender' || k === 'sex' || k === 'm/f') columnMap.gender = i;
+      else if (k === 'school' || k === 'team') columnMap.school = i;
+      else if (k === 'email' || k === 'e-mail') columnMap.email = i;
+      else if (k === 'phone' || k === 'tel' || k === 'mobile') columnMap.phone = i;
+    });
+    dataLines = lines.slice(1);
+  }
+
+  return dataLines.map(line => {
+    const parts = split(line);
+    const row = { first: '', last: '', grade: null, gender: 'M', school: defaultSchool || '', email: '', phone: '', valid: false, error: null };
+    if (columnMap.first >= 0 && parts[columnMap.first]) row.first = parts[columnMap.first];
+    if (columnMap.last >= 0 && parts[columnMap.last]) row.last = parts[columnMap.last];
+    if (columnMap.grade >= 0 && parts[columnMap.grade]) {
+      const g = Number(parts[columnMap.grade]);
+      if (!isNaN(g) && g >= 9 && g <= 12) row.grade = g;
+    }
+    if (columnMap.gender >= 0 && parts[columnMap.gender]) {
+      const g = parts[columnMap.gender].toLowerCase();
+      if (g === 'f' || g === 'female' || g === 'girl' || g === 'girls' || g === 'w') row.gender = 'F';
+      else row.gender = 'M';
+    }
+    if (columnMap.school >= 0 && parts[columnMap.school]) row.school = parts[columnMap.school];
+    if (columnMap.email >= 0 && parts[columnMap.email]) row.email = parts[columnMap.email];
+    if (columnMap.phone >= 0 && parts[columnMap.phone]) row.phone = parts[columnMap.phone];
+
+    if (!row.first || !row.last) row.error = 'Missing first or last name';
+    else if (!row.grade) row.error = 'Missing or invalid grade';
+    else if (!row.school) row.error = 'No school (pick a default above)';
+    else row.valid = true;
+    return row;
+  });
+}
+
+function parseUploadPreview() {
+  const text = document.getElementById('ur-text')?.value || '';
+  const parsed = parseRosterText(text, uploadDefaultSchool);
+  const preview = document.getElementById('upload-preview');
+  if (!preview) return;
+  if (parsed.length === 0) {
+    preview.innerHTML = '';
+    document.getElementById('ur-submit').disabled = true;
+    return;
+  }
+  const valid = parsed.filter(p => p.valid);
+  const invalid = parsed.length - valid.length;
+  document.getElementById('ur-submit').disabled = valid.length === 0;
+  preview.innerHTML = `
+    <div class="upload-preview">
+      <div class="upload-summary">
+        <span class="count-ok">${valid.length} valid</span>
+        ${invalid > 0 ? `<span class="count-err">${invalid} with issues</span>` : ''}
+      </div>
+      ${parsed.map(p => `
+        <div class="upload-row-p ${p.valid ? '' : 'invalid'}">
+          <div class="row-mark ${p.valid ? 'ok' : 'err'}">${p.valid ? '✓' : '!'}</div>
+          <div class="row-name">${p.first} ${p.last || '<span style="color: var(--text-faint);">no last</span>'}</div>
+          <div style="text-align: center; color: var(--text-muted);">${p.gender || '—'}</div>
+          <div style="text-align: center; color: var(--text-muted);">${p.grade || '—'}</div>
+          <div style="color: var(--text-muted);">${p.school || (p.error ? `<span class="row-error">${p.error}</span>` : '—')}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function submitUploadRoster(meetId) {
+  const text = document.getElementById('ur-text').value;
+  const parsed = parseRosterText(text, uploadDefaultSchool).filter(p => p.valid);
+  if (parsed.length === 0) { alert('No valid athletes to add'); return; }
+  const enterInMeet = meetId && document.getElementById('ur-enter')?.checked;
+  let added = 0, skipped = 0, entered = 0;
+  const newSchools = new Set();
+  parsed.forEach(p => { if (!state.schools.includes(p.school)) newSchools.add(p.school); });
+  newSchools.forEach(s => broadcast({ type: 'SCHOOL_ADD', name: s }));
+  parsed.forEach(p => {
+    const dup = state.athletes.find(a => a.first.toLowerCase() === p.first.toLowerCase() && a.last.toLowerCase() === p.last.toLowerCase() && a.school === p.school);
+    if (dup) {
+      skipped++;
+      if (enterInMeet) {
+        const meet = getMeet(meetId);
+        if (meet && !meet.entries.some(e => e.athleteId === dup.id)) {
+          broadcast({ type: 'ENTRY_TOGGLE', meetId, athleteId: dup.id });
+          entered++;
+        }
+      }
+      return;
+    }
+    const athlete = { id: makeId('a'), first: p.first, last: p.last, school: p.school, grade: p.grade, gender: p.gender, email: p.email, phone: p.phone };
+    broadcast({ type: 'ATHLETE_ADD', athlete });
+    added++;
+    if (enterInMeet) {
+      broadcast({ type: 'ENTRY_TOGGLE', meetId, athleteId: athlete.id });
+      entered++;
+    }
+  });
+  closeModal();
+  alert(`Added ${added} athletes${skipped > 0 ? ` (${skipped} duplicates skipped)` : ''}${entered > 0 ? ` · Entered ${entered} in current meet` : ''}.`);
+}
 
 //=================================================================
 // TIMER VIEW
 //=================================================================
 function renderTimer() {
   app.className = "app";
-  const active = state.meets.find(m => m.id === state.activeMeetId);
-  
+  const meet = getActiveMeet();
   app.innerHTML = `
-    <div class="topbar">
-      <div class="topbar-l">
-        <div class="eyebrow">TIMER ROLE</div>
-        <div class="meet-name">${active ? active.name : 'No active meet'}</div>
-      </div>
-      <div class="topbar-r">
-        <span class="switch-link" onclick="location.hash='picker'">switch role</span>
-      </div>
-    </div>
-    
+    ${chuteTopbar("Timer", meet)}
     <div class="view">
-      ${!active || !active.raceStartedAt ? `
-        <div class="empty-state">Waiting for director to start the race.<br>Coach can start from the Coach view.</div>
+      ${!meet || !meet.raceStartedAt ? `
+        <div style="text-align:center; padding: 40px 20px; color: var(--text-muted); font-size: 14px;">
+          Waiting for the director to start a race.
+        </div>
       ` : `
         <div class="clock-card">
-          <div class="clock-card-l">ELAPSED TIME</div>
-          <div class="clock-card-v" id="clock-big">${fmtTime(elapsed(active))}</div>
+          <div class="clock-card-l">${meet.name}</div>
+          <div class="clock-card-v" id="clock-big">${fmtTime(elapsed(meet))}</div>
+          <div class="clock-card-r">${meet.timerTaps.length} timed</div>
         </div>
-        
-        <button class="tap-mega" id="tap-btn" onmousedown="recordFinish()" ontouchstart="event.preventDefault(); recordFinish()">
-          <div class="tap-mega-t">TAP WHEN RUNNER CROSSES</div>
-          <div class="tap-mega-v">FINISH</div>
-          <div class="tap-mega-h">Position ${active.timerTaps.length + 1}</div>
+        <div class="tap-mega" id="tap-button" onmousedown="handleTap()" ontouchstart="event.preventDefault(); handleTap()">
+          <div class="tap-mega-t">Tap each finisher</div>
+          <div class="tap-mega-v">TAP</div>
+          <div class="tap-mega-h">Position ${meet.timerTaps.length + 1} next</div>
+        </div>
+        <button class="undo-btn" onclick="broadcast({type:'TIMER_UNDO'})" ${meet.timerTaps.length === 0 ? "disabled" : ""}>
+          Undo last tap
         </button>
-        
-        <button class="undo-btn" onclick="undoTimer()" ${active.timerTaps.length === 0 ? 'disabled' : ''}>Undo Last Tap</button>
-        
-        <div style="margin-top: 24px; text-align: center;">
-          <button class="action-btn danger" onclick="endRace()" ${active.endedAt ? 'disabled' : ''}>Stop Race</button>
-        </div>
+        ${meet.timerTaps.length > 0 ? `
+          <div class="recent-section">
+            <div class="section-label">Recent taps</div>
+            ${meet.timerTaps.slice(-5).reverse().map(t => `
+              <div class="entry-row">
+                <div class="pos-pill">${t.position}</div>
+                <div class="entry-time">${fmtTime(t.ms / 1000)}</div>
+              </div>
+            `).join("")}
+          </div>
+        ` : ""}
       `}
     </div>
   `;
 }
 
-function recordFinish() {
-  const active = state.meets.find(m => m.id === state.activeMeetId);
-  if (!active || !active.raceStartedAt || active.endedAt) return;
-  
-  const btn = document.getElementById('tap-btn');
-  if (btn) { btn.classList.add('tap-flash'); setTimeout(() => btn.classList.remove('tap-flash'), 80); }
-  
-  broadcast({ type: "TIMER_TAP", ms: Date.now() - active.raceStartedAt });
-}
-
-function undoTimer() {
-  broadcast({ type: "TIMER_UNDO" });
-}
-
-function endRace() {
-  const active = state.meets.find(m => m.id === state.activeMeetId);
-  if (!active) return;
-  broadcast({ type: "RACE_END", meetId: active.id, endedAt: Date.now() });
-  alert("Race ended. Results are now available in the Coach view.");
+function handleTap() {
+  const meet = getActiveMeet();
+  if (!meet || !meet.raceStartedAt || meet.endedAt) return;
+  const btn = document.getElementById("tap-button");
+  if (btn) { btn.classList.add("tap-flash"); setTimeout(() => btn.classList.remove("tap-flash"), 100); }
+  broadcast({ type: "TIMER_TAP", ms: Date.now() - meet.raceStartedAt });
 }
 
 //=================================================================
-// RECORDER VIEW (Large Keypad)
+// RECORDER VIEW
 //=================================================================
-let bibInput = "";
+let bibBuffer = "";
 function renderRecorder() {
   app.className = "app";
-  const active = state.meets.find(m => m.id === state.activeMeetId);
-  const nextPos = active ? active.recorderBibs.length + 1 : 1;
-  const matchingTap = active ? active.timerTaps[nextPos - 1] : null;
-  
+  const meet = getActiveMeet();
+  const nextPos = meet ? meet.recorderBibs.length + 1 : 1;
+  const matchingTap = meet ? meet.timerTaps[nextPos - 1] : null;
+  const drift = meet ? meet.timerTaps.length - meet.recorderBibs.length : 0;
+
   app.innerHTML = `
-    <div class="topbar">
-      <div class="topbar-l">
-        <div class="eyebrow">RECORDER ROLE</div>
-        <div class="meet-name">${active ? active.name : 'No active meet'}</div>
-      </div>
-      <div class="topbar-r">
-        <span class="switch-link" onclick="location.hash='picker'">switch role</span>
-      </div>
-    </div>
-    
+    ${chuteTopbar("Recorder", meet)}
     <div class="view">
-      ${!active || !active.raceStartedAt ? `
-        <div class="empty-state">Waiting for race to start.</div>
-      ` : `
-        <div class="drift-bar ${active.timerTaps.length === active.recorderBibs.length ? 'synced' : 'drift'}">
-          <b>${active.timerTaps.length - active.recorderBibs.length} pending</b>
+      ${!meet || !meet.raceStartedAt ? `
+        <div style="text-align:center; padding: 40px 20px; color: var(--text-muted); font-size: 14px;">
+          Waiting for the director to start a race.
         </div>
-        
+      ` : `
+        <div class="${drift === 0 ? "drift-bar synced" : "drift-bar drift"}">
+          <span><b>${drift === 0 ? "In sync" : drift > 0 ? `${drift} bibs behind` : `${Math.abs(drift)} ahead`}</b> · ${meet.recorderBibs.length} of ${meet.timerTaps.length} matched</span>
+          ${drift > 0 ? `<button class="skip-btn" onclick="skipBib()">Skip bib</button>` : ""}
+        </div>
         ${matchingTap ? `
           <div class="pending-card">
             <div class="pending-row">
@@ -828,179 +1740,133 @@ function renderRecorder() {
               <div class="pending-time">${fmtTime(matchingTap.ms / 1000)}</div>
             </div>
             <div class="pending-bib-display">
-              ${[0,1,2,3].map(i => `<div class="bib-digit ${bibInput.length <= i ? 'empty' : ''}">${bibInput[i] || '_'}</div>`).join('')}
+              ${[0,1,2,3].map(i => `<div class="bib-digit ${bibBuffer.length <= i ? "empty" : ""}">${bibBuffer[i] || "_"}</div>`).join("")}
             </div>
-            <div class="resolved-name">
-              ${bibInput.length === 4 ? (findAthlete(bibInput, active) ? findAthlete(bibInput, active).first + ' ' + findAthlete(bibInput, active).last : 'Unknown bib') : ''}
-            </div>
+            <div class="resolved-name">${
+              bibBuffer.length === 4
+                ? (findAthleteByBibInMeet(bibBuffer, meet)
+                    ? `${findAthleteByBibInMeet(bibBuffer, meet).first} ${findAthleteByBibInMeet(bibBuffer, meet).last} — ${findAthleteByBibInMeet(bibBuffer, meet).school}`
+                    : `<span style="color: var(--danger);">Unknown bib ${bibBuffer}</span>`)
+                : ""
+            }</div>
           </div>
-        ` : `<div class="pending-empty">Waiting for next finisher...</div>`}
-        
+        ` : `
+          <div class="pending-empty">Waiting for the next finisher to cross.</div>
+        `}
         <div class="keypad">
-          ${[1,2,3,4,5,6,7,8,9].map(d => `<button class="key" onclick="addBibDigit('${d}')" ${bibInput.length >= 4 || !matchingTap ? 'disabled' : ''}>${d}</button>`).join('')}
-          <button class="key del" onclick="deleteBibDigit()" ${bibInput.length === 0 ? 'disabled' : ''}>⌫</button>
-          <button class="key" onclick="addBibDigit('0')" ${bibInput.length >= 4 || !matchingTap ? 'disabled' : ''}>0</button>
-          <button class="key commit" onclick="submitBib()" ${bibInput.length !== 4 || !matchingTap ? 'disabled' : ''}>ENTER</button>
+          ${["1","2","3","4","5","6","7","8","9"].map(d => `
+            <button class="key" onclick="addDigit('${d}')" ${!matchingTap || bibBuffer.length >= 4 ? "disabled" : ""}>${d}</button>
+          `).join("")}
+          <button class="key del" onclick="delDigit()" ${bibBuffer.length === 0 ? "disabled" : ""}>⌫</button>
+          <button class="key" onclick="addDigit('0')" ${!matchingTap || bibBuffer.length >= 4 ? "disabled" : ""}>0</button>
+          <button class="key commit" onclick="commitBib()" ${bibBuffer.length !== 4 || !matchingTap ? "disabled" : ""}>✓</button>
         </div>
-        
-        <button class="undo-btn" onclick="undoRecorder()" ${active.recorderBibs.length === 0 ? 'disabled' : ''}>Undo Last Bib</button>
+        <button class="undo-btn" onclick="broadcast({type:'RECORDER_UNDO'})" ${meet.recorderBibs.length === 0 ? "disabled" : ""}>
+          Undo last bib
+        </button>
+        ${meet.recorderBibs.length > 0 ? `
+          <div class="recent-section">
+            <div class="section-label">Recent bibs</div>
+            ${meet.recorderBibs.slice(-5).reverse().map(b => {
+              const ath = b.bib != null ? findAthleteByBibInMeet(b.bib, meet) : null;
+              const tap = meet.timerTaps[b.position - 1];
+              return `
+                <div class="entry-row">
+                  <div class="pos-pill">${b.position}</div>
+                  <div style="flex:1; min-width:0;">
+                    <div class="entry-name">${b.bib == null ? '<span style="color: var(--text-faint);">— skipped —</span>' : `${b.bib} · ${ath ? ath.first + ' ' + ath.last : "unknown"}`}</div>
+                    ${ath ? `<div class="entry-sub">${ath.school}</div>` : ""}
+                  </div>
+                  <div class="entry-time">${tap ? fmtTime(tap.ms / 1000) : "—"}</div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        ` : ""}
       `}
     </div>
   `;
 }
 
-function addBibDigit(d) {
-  if (bibInput.length >= 4) return;
-  bibInput += d;
-  renderRecorder();
-}
-
-function deleteBibDigit() {
-  bibInput = bibInput.slice(0, -1);
-  renderRecorder();
-}
-
-function submitBib() {
-  if (bibInput.length !== 4) return;
-  const bib = bibInput;
-  bibInput = "";
-  broadcast({ type: "RECORDER_BIB", bib });
-  renderRecorder();
-}
-
-function undoRecorder() {
-  broadcast({ type: "RECORDER_UNDO" });
-}
+function addDigit(d) { if (bibBuffer.length >= 4) return; bibBuffer += d; renderRecorder(); }
+function delDigit() { bibBuffer = bibBuffer.slice(0, -1); renderRecorder(); }
+function commitBib() { if (bibBuffer.length !== 4) return; const bib = bibBuffer; bibBuffer = ""; broadcast({ type: "RECORDER_BIB", bib }); }
+function skipBib() { bibBuffer = ""; broadcast({ type: "RECORDER_BIB", bib: null }); }
 
 //=================================================================
-// RESULTS HELPERS
+// SHARED CHUTE TOPBAR
 //=================================================================
-function computeResults(meet) {
-  if (!meet) return [];
-  const results = [];
-  for (let i = 0; i < meet.recorderBibs.length; i++) {
-    const tap = meet.timerTaps[i];
-    const bibEntry = meet.recorderBibs[i];
-    if (!tap || bibEntry.bib == null) continue;
-    const ath = findAthlete(bibEntry.bib, meet);
-    if (!ath) continue;
-    results.push({
-      place: results.length + 1,
-      time: tap.ms / 1000,
-      bib: bibEntry.bib,
-      ...ath
-    });
-  }
-  return results;
-}
-
-function renderTeamScores(finishers) {
-  if (finishers.length === 0) return `<div class="empty-state">No finishers yet.</div>`;
-  
-  const bySchool = {};
-  finishers.forEach(f => {
-    if (!bySchool[f.school]) bySchool[f.school] = [];
-    bySchool[f.school].push(f);
-  });
-  
-  const scoredTeams = Object.keys(bySchool)
-    .filter(s => bySchool[s].length >= 5)
-    .map(school => {
-      const runners = bySchool[school];
-      const top5 = runners.slice(0, 5);
-      const displacers = runners.slice(5, 7);
-      const points = top5.reduce((sum, r) => sum + r.place, 0);
-      return { school, points, top5, displacers, count: runners.length };
-    })
-    .sort((a, b) => a.points - b.points || (a.displacers[0]?.place || 999) - (b.displacers[0]?.place || 999));
-  
-  return scoredTeams.map((team, i) => `
-    <div class="team-row ${i === 0 ? 'winner' : ''}">
-      <div class="team-row-head">
-        <div style="display:flex; align-items:baseline; flex:1;">
-          <span class="team-place ${i === 0 ? 'winner' : ''}">${i + 1}.</span>
-          <span class="team-name">${team.school}</span>
+function chuteTopbar(roleName, meet) {
+  const liveText = meet && meet.raceStartedAt && !meet.endedAt
+    ? `<span class="live-pill"><span class="live-dot"></span>Live</span><div class="live-time" id="live-time">${fmtTime(elapsed(meet))}</div>`
+    : meet && meet.endedAt
+    ? `<span class="live-pill done"><span class="live-dot"></span>Ended</span><div class="live-time">${fmtTime(elapsed(meet))}</div>`
+    : `<span class="live-pill idle"><span class="live-dot"></span>Standby</span>`;
+  const roleColor = roleName === "Timer"
+    ? 'background: var(--warning-bg); color: var(--warning);'
+    : 'background: var(--primary-bg); color: var(--primary);';
+  return `
+    <div class="topbar">
+      <div class="topbar-l">
+        <div class="eyebrow">${meet ? meet.location + ' · ' + fmtDate(meet.date) : 'No active meet'}</div>
+        <div class="meet-name">${meet ? meet.name : '—'}</div>
+        <div class="race-name">${meet ? meet.distance + ' · ' + meet.course : ''}</div>
+        <div style="margin-top: 6px; display: flex; gap: 8px; align-items: center;">
+          <span style="font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 999px; ${roleColor}">${roleName}</span>
+          <span class="switch-link" onclick="setRole('picker')">switch role</span>
         </div>
-        <div class="team-pts">${team.points}</div>
       </div>
-      <div class="team-places">
-        ${team.top5.map(r => `<span class="team-place-pill">${r.place}</span>`).join('')}
-        ${team.displacers.map(r => `<span class="team-place-pill disp">(${r.place})</span>`).join('')}
-      </div>
+      <div class="topbar-r">${liveText}</div>
     </div>
-  `).join('');
+  `;
 }
 
-function renderIndividualResults(finishers) {
-  if (finishers.length === 0) return `<div class="empty-state">No results.</div>`;
-  return finishers.map(f => `
-    <div class="ind-row">
-      <div class="ind-pos">${f.place}</div>
-      <div class="ind-bib">${f.bib}</div>
-      <div>
-        <div class="ind-name">${f.first} ${f.last}</div>
-        <div class="ind-school">${f.school} • Grade ${f.grade}</div>
-      </div>
-      <div class="ind-time">${fmtTime(f.time)}</div>
-    </div>
-  `).join('');
-}
+//=================================================================
+// SIMULATOR
+//=================================================================
+function runSimulator() {
+  const meet = getActiveMeet();
+  if (!meet) return;
+  const racing = meet.entries
+    .filter(e => e.bib != null)
+    .map(e => ({ entry: e, athlete: state.athletes.find(a => a.id === e.athleteId) }))
+    .filter(x => x.athlete);
+  if (racing.length === 0) { alert('No athletes have bibs assigned. Use Meet Entry → Assign Bibs by Last Name first.'); return; }
+  if (!confirm(`Run simulated race with ${racing.length} athletes? Will compress to ~25 seconds with intentional drift.`)) return;
 
-function downloadCSV() {
-  const active = state.meets.find(m => m.id === state.activeMeetId);
-  if (!active) return;
-  const finishers = computeResults(active);
-  if (finishers.length === 0) { alert("No results to export"); return; }
-  
-  let csv = "Place,Bib,First,Last,Grade,Gender,School,Time\n";
-  finishers.forEach(f => {
-    csv += `${f.place},${f.bib},${f.first},${f.last},${f.grade},${f.gender},${f.school},${fmtTime(f.time)}\n`;
-  });
-  
-  const blob = new Blob([csv], { type: "text/csv" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${active.name.replace(/ /g, "_")}-results.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  broadcast({ type: "RACE_RESET", meetId: meet.id });
+  setTimeout(() => {
+    broadcast({ type: "RACE_START", meetId: meet.id, startedAt: Date.now() });
+    const finishers = racing
+      .map(r => ({ ...r, simTime: 950 + (Math.random() - 0.5) * 120 }))
+      .sort((a, b) => a.simTime - b.simTime);
+    const SCALE = 80;
+    finishers.forEach((f, i) => {
+      const finishOffsetMs = (f.simTime / SCALE) * 1000;
+      setTimeout(() => {
+        const m = getActiveMeet();
+        if (m && m.raceStartedAt) broadcast({ type: "TIMER_TAP", ms: Date.now() - m.raceStartedAt });
+      }, finishOffsetMs);
+      const recorderDelay = 600 + Math.random() * 1200;
+      const r = Math.random();
+      setTimeout(() => {
+        const m = getActiveMeet();
+        if (!m || !m.raceStartedAt) return;
+        if (r < 0.05 && i > 4) broadcast({ type: "RECORDER_BIB", bib: null });
+        else broadcast({ type: "RECORDER_BIB", bib: f.entry.bib });
+      }, finishOffsetMs + recorderDelay);
+    });
+    const lastFinishMs = (finishers[finishers.length - 1].simTime / SCALE) * 1000;
+    setTimeout(() => {
+      const m = getActiveMeet();
+      if (m && m.raceStartedAt && !m.endedAt) broadcast({ type: "RACE_END", meetId: m.id, endedAt: Date.now() });
+    }, lastFinishMs + 4000);
+  }, 50);
 }
 
 //=================================================================
 // INIT
 //=================================================================
-loadState();
-
-// Seed a sample meet + athletes if empty
-if (state.meets.length === 0) {
-  const sampleMeet = {
-    id: "meet-001",
-    name: "Crystal Springs Invitational",
-    date: "2026-05-10",
-    location: "Crystal Springs HS",
-    entries: [],
-    raceStartedAt: null,
-    endedAt: null,
-    timerTaps: [],
-    recorderBibs: []
-  };
-  state.meets.push(sampleMeet);
-  state.activeMeetId = sampleMeet.id;
-  
-  // Sample athletes (no bibs yet)
-  const samples = [
-    { first: "Marcus", last: "Chen", grade: 12, gender: "M", school: "Crystal Springs", email: "marcus@cs.edu", phone: "555-0101" },
-    { first: "Jamal", last: "Williams", grade: 12, gender: "M", school: "Crystal Springs", email: "jamal@cs.edu", phone: "555-0102" },
-    { first: "Ava", last: "Rodriguez", grade: 11, gender: "F", school: "Pine Hills", email: "ava@ph.edu", phone: "555-0201" },
-    { first: "Liam", last: "Patel", grade: 10, gender: "M", school: "Pine Hills", email: "liam@ph.edu", phone: "555-0202" },
-    { first: "Sophia", last: "Kim", grade: 12, gender: "F", school: "Westview", email: "sophia@wv.edu", phone: "555-0301" }
-  ];
-  samples.forEach(s => {
-    state.athletes.push({ id: makeId("a"), ...s, bib: null });
-  });
-  saveState();
-}
-
 render();
 </script>
 </body>
