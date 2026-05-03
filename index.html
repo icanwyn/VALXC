@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>XCTrack Pro • Cross Country Timing</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#000000">
+<style>
+  :root {
+    --bg: #f5f5f4;
+    --surface: #ffffff;
+    --surface-2: #fafaf9;
+    --border: #e7e5e4;
+    --border-strong: #d6d3d1;
+    --text: #1c1917;
+    --text-muted: #78716c;
+    --text-faint: #a8a29e;
+    --primary: #2563eb;
+    --primary-bg: #eff6ff;
+    --primary-border: #bfdbfe;
+    --primary-strong: #1d4ed8;
+    --warning: #b45309;
+    --warning-bg: #fffbeb;
+    --warning-border: #fcd34d;
+    --warning-strong: #d97706;
+    --success: #047857;
+    --success-bg: #ecfdf5;
+    --success-border: #a7f3d0;
+    --danger: #b91c1c;
+    --danger-bg: #fef2f2;
+    --danger-border: #fecaca;
+    --pink: #db2777;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  button:disabled { cursor: not-allowed; opacity: 0.5; }
+  input, select, textarea { font: inherit; color: inherit; }
+
+  .app { max-width: 460px; margin: 0 auto; min-height: 100vh; background: var(--surface); position: relative; padding-bottom: 80px; }
+  @media (min-width: 480px) {
+    .app { margin-top: 16px; min-height: calc(100vh - 32px); border-radius: 24px; border: 1px solid var(--border); overflow: hidden; box-shadow: 0 20px 50px -25px rgba(0,0,0,0.15); }
+    body { padding: 0 16px 32px; }
+  }
+  .app.wide { max-width: 720px; }
+
+  /* picker */
+  .picker { padding: 32px 24px; }
+  .picker h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+  .picker p { color: var(--text-muted); font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+  .role-grid { display: grid; gap: 12px; }
+  .role-card { background: var(--surface); border: 1.5px solid var(--border); border-radius: 14px; padding: 18px; text-align: left; transition: all 0.15s; }
+  .role-card:hover { border-color: var(--border-strong); }
+  .role-card.coach { border-left: 4px solid var(--primary); }
+  .role-card.timer { border-left: 4px solid var(--warning-strong); }
+  .role-card.recorder { border-left: 4px solid var(--primary); }
+  .role-card-title { font-weight: 600; font-size: 16px; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+  .role-card-desc { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+  .role-tag { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px; letter-spacing: 0.5px; text-transform: uppercase; }
+  .role-tag.timer { background: var(--warning-bg); color: var(--warning); }
+  .role-tag.recorder { background: var(--primary-bg); color: var(--primary); }
+  .role-tag.coach { background: var(--primary-bg); color: var(--primary); }
+  .picker-instructions { background: var(--warning-bg); border: 1px solid var(--warning-border); border-radius: 10px; padding: 12px 14px; margin-top: 20px; font-size: 13px; color: var(--warning); line-height: 1.5; }
+  .picker-instructions b { display: block; margin-bottom: 4px; font-weight: 600; }
+
+  /* coach app shell */
+  .shell-top { padding: 12px 18px; border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 10; }
+  .meet-selector { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-weight: 600; background: var(--surface); appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path fill='%2378716c' d='M6 8L0 0h12z'/></svg>"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
+  .meet-selector-row { display: flex; gap: 6px; align-items: center; }
+  .new-meet-btn { padding: 10px 14px; background: var(--primary); color: white; border-radius: 8px; font-size: 13px; font-weight: 500; flex-shrink: 0; }
+  .meet-meta-row { display: flex; gap: 12px; align-items: center; margin-top: 6px; font-size: 11px; color: var(--text-muted); }
+  .live-pill { font-size: 10px; font-weight: 600; color: var(--warning-strong); text-transform: uppercase; letter-spacing: 0.6px; display: inline-flex; align-items: center; gap: 5px; }
+  .live-pill.idle { color: var(--text-faint); }
+  .live-pill.done { color: var(--success); }
+  .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--warning-strong); animation: pulse 1.5s infinite; }
+  .live-pill.idle .live-dot { background: var(--text-faint); animation: none; }
+  .live-pill.done .live-dot { background: var(--success); animation: none; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .switch-link { font-size: 11px; color: var(--text-faint); text-decoration: underline; cursor: pointer; }
+
+  /* main nav tabs */
+  .nav-tabs { display: flex; padding: 0 18px; border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 89px; z-index: 9; overflow-x: auto; }
+  .nav-tab { padding: 12px 14px 10px; font-size: 13px; font-weight: 500; color: var(--text-muted); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.1s; white-space: nowrap; }
+  .nav-tab:hover { color: var(--text); }
+  .nav-tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+  .nav-tab .tab-badge { background: var(--warning-bg); color: var(--warning); font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 999px; margin-left: 4px; }
+
+  /* shared view container */
+  .view { padding: 16px 18px; }
+  .section-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); margin-bottom: 8px; }
+  .empty-state { padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 13px; }
+
+  /* status banners */
+  .status-banner { padding: 12px 14px; border-radius: 12px; margin-bottom: 16px; }
+  .status-banner.info { background: var(--primary-bg); border: 1px solid var(--primary-border); }
+  .status-banner.warn { background: var(--warning-bg); border: 1px solid var(--warning-border); }
+  .status-banner.success { background: var(--success-bg); border: 1px solid var(--success-border); }
+  .status-banner-l { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; }
+  .status-banner-v { font-size: 14px; font-weight: 500; margin-top: 4px; }
+  .status-banner.info .status-banner-l, .status-banner.info .status-banner-v { color: var(--primary); }
+  .status-banner.warn .status-banner-l, .status-banner.warn .status-banner-v { color: var(--warning); }
+  .status-banner.success .status-banner-l, .status-banner.success .status-banner-v { color: var(--success); }
+
+  /* action buttons grid */
+  .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+  .action-btn { padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); font-size: 12px; font-weight: 500; }
+  .action-btn.primary { background: var(--primary-bg); color: var(--primary); border-color: var(--primary-border); }
+  .action-btn.success { background: var(--success-bg); color: var(--success); border-color: var(--success-border); }
+  .action-btn.warn { background: var(--warning-bg); color: var(--warning); border-color: var(--warning-border); }
+  .action-btn.danger { color: var(--danger); border-color: var(--danger-border); }
+
+  /* school card (entries by school) */
+  .school-block { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 12px; overflow: hidden; }
+  .school-head { padding: 12px 14px; background: var(--surface-2); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .school-head-l { min-width: 0; flex: 1; }
+  .school-name { font-size: 14px; font-weight: 600; }
+  .school-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  .school-actions { display: flex; gap: 6px; }
+  .school-action-btn { background: var(--surface); color: var(--text-muted); padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 11px; font-weight: 500; }
+  .school-action-btn:hover { color: var(--text); border-color: var(--border-strong); }
+  .school-action-btn.danger:hover { color: var(--danger); border-color: var(--danger-border); }
+
+  .athlete-row { display: grid; grid-template-columns: 22px 50px 1fr 24px 30px 60px 24px; gap: 8px; padding: 8px 14px; align-items: center; border-bottom: 1px solid var(--border); font-size: 12px; cursor: pointer; }
+  .athlete-row:last-child { border-bottom: none; }
+  .athlete-row:hover { background: var(--surface-2); }
+  .athlete-row.entered { background: var(--primary-bg); }
+  .athlete-row.entered:hover { background: #dbeafe; }
+  .athlete-check { width: 18px; height: 18px; border: 1.5px solid var(--border-strong); border-radius: 4px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: var(--surface); }
+  .athlete-check.checked { background: var(--primary); border-color: var(--primary); color: white; }
+  .ath-bib { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-weight: 600; color: var(--text); }
+  .ath-bib.empty { color: var(--text-faint); }
+  .ath-name { font-weight: 500; }
+  .ath-gender { font-size: 11px; color: var(--text-muted); text-align: center; font-weight: 500; }
+  .ath-gender.M { color: var(--primary); }
+  .ath-gender.F { color: var(--pink); }
+  .ath-grade { font-size: 11px; color: var(--text-muted); text-align: center; }
+  .ath-pr { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px; color: var(--text-muted); text-align: right; }
+  .ath-del { color: var(--text-faint); font-size: 16px; padding: 0; text-align: center; }
+  .ath-del:hover { color: var(--danger); }
+
+  .add-athlete-form { padding: 10px 14px; background: var(--surface-2); display: grid; grid-template-columns: 1fr 50px 50px 70px 50px; gap: 6px; align-items: center; border-top: 1px solid var(--border); }
+  .add-athlete-form input, .add-athlete-form select { padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; background: var(--surface); width: 100%; }
+  .add-athlete-form button { padding: 7px 8px; background: var(--primary); color: white; border-radius: 6px; font-size: 12px; font-weight: 500; }
+
+  .add-school-row { display: flex; gap: 8px; padding: 12px 14px; background: var(--surface); border: 1px dashed var(--border-strong); border-radius: 12px; margin-bottom: 16px; align-items: center; }
+  .add-school-row input { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: var(--surface); }
+  .add-school-row button { padding: 8px 14px; background: var(--primary); color: white; border-radius: 6px; font-size: 12px; font-weight: 500; }
+
+  /* race view */
+  .clock-card { background: var(--warning-bg); border: 1.5px solid var(--warning-border); border-radius: 14px; padding: 16px; text-align: center; margin-bottom: 16px; }
+  .clock-card-l { font-size: 11px; font-weight: 600; color: var(--warning); text-transform: uppercase; letter-spacing: 0.6px; }
+  .clock-card-v { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 40px; font-weight: 600; color: var(--warning); margin: 4px 0; line-height: 1; font-variant-numeric: tabular-nums; }
+  .clock-card-r { font-size: 12px; color: var(--warning); }
+
+  .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+  .stat-card { background: #f1f5f9; border-radius: 10px; padding: 10px; text-align: center; }
+  .stat-card.warn { background: var(--warning-bg); }
+  .stat-card.success { background: var(--success-bg); }
+  .stat-card.primary { background: var(--primary-bg); }
+  .stat-l { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+  .stat-card.warn .stat-l { color: var(--warning); }
+  .stat-card.success .stat-l { color: var(--success); }
+  .stat-card.primary .stat-l { color: var(--primary); }
+  .stat-v { font-size: 22px; font-weight: 600; margin-top: 2px; }
+  .stat-card.warn .stat-v { color: var(--warning); }
+  .stat-card.success .stat-v { color: var(--success); }
+  .stat-card.primary .stat-v { color: var(--primary); }
+
+  .position-table { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .position-row-d { display: grid; grid-template-columns: 32px 1fr 1fr 60px; gap: 8px; padding: 10px 12px; align-items: center; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .position-row-d:last-child { border-bottom: none; }
+  .position-row-d.head { background: var(--surface-2); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); padding: 8px 12px; }
+  .position-row-d.unmatched { background: var(--warning-bg); }
+  .pos-num { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-weight: 600; }
+  .col-time { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .col-bib { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-weight: 500; }
+  .col-name { font-size: 11px; color: var(--text-muted); }
+  .empty-cell { color: var(--text-faint); font-style: italic; font-size: 11px; }
+
+  /* timer view (chute) */
+  .tap-mega { background: var(--warning-strong); color: white; border-radius: 18px; padding: 80px 20px; text-align: center; margin-bottom: 16px; transition: transform 0.05s, background 0.05s; user-select: none; }
+  .tap-mega:active { transform: scale(0.97); background: #92400e; }
+  .tap-mega-t { font-size: 14px; font-weight: 600; opacity: 0.85; text-transform: uppercase; letter-spacing: 1px; }
+  .tap-mega-v { font-size: 64px; font-weight: 700; line-height: 1; margin-top: 8px; letter-spacing: 4px; }
+  .tap-mega-h { font-size: 13px; opacity: 0.85; margin-top: 12px; }
+  .tap-flash { background: #d97706 !important; }
+  .undo-btn { display: block; width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 13px; color: var(--text-muted); background: var(--surface); }
+
+  /* recorder view (chute) */
+  .pending-card { background: var(--primary-bg); border: 1.5px solid var(--primary-border); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+  .pending-row { display: flex; justify-content: space-between; align-items: baseline; margin-top: 6px; }
+  .pending-pos { font-size: 13px; color: var(--primary); font-weight: 500; }
+  .pending-time { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 22px; font-weight: 600; color: var(--primary); font-variant-numeric: tabular-nums; }
+  .pending-bib-display { display: flex; justify-content: center; align-items: center; min-height: 50px; margin-top: 10px; gap: 8px; }
+  .bib-digit { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 36px; font-weight: 700; color: var(--primary); width: 36px; text-align: center; border-bottom: 3px solid var(--primary-border); padding-bottom: 4px; }
+  .bib-digit.empty { color: var(--text-faint); }
+  .resolved-name { text-align: center; font-size: 13px; color: var(--primary); margin-top: 6px; min-height: 18px; font-weight: 500; }
+  .pending-empty { background: #f1f5f9; border: 1.5px dashed var(--border-strong); border-radius: 12px; padding: 30px 14px; text-align: center; margin-bottom: 14px; color: var(--text-muted); font-size: 13px; }
+  .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+  .key { background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 18px 0; text-align: center; font-size: 22px; font-weight: 500; transition: all 0.05s; user-select: none; }
+  .key:active { background: #f1f5f9; transform: scale(0.96); }
+  .key.commit { background: var(--primary); color: white; border-color: var(--primary); }
+  .key.commit:disabled { background: #cbd5e1; border-color: #cbd5e1; }
+  .key.del { color: var(--text-muted); }
+  .drift-bar { padding: 10px 14px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; margin: 12px 0; }
+  .drift-bar.synced { background: var(--success-bg); color: var(--success); }
+  .drift-bar.drift { background: var(--warning-bg); color: var(--warning); }
+  .drift-bar b { font-weight: 600; }
+  .skip-btn { background: var(--surface); color: var(--text-muted); padding: 4px 10px; border: 1px solid var(--border-strong); border-radius: 6px; font-size: 11px; font-weight: 500; }
+
+  /* results view */
+  .results-section { margin-bottom: 24px; }
+  .results-h { font-size: 14px; font-weight: 600; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: baseline; }
+  .results-h-sub { font-size: 11px; color: var(--text-muted); font-weight: 400; }
+
+  .team-row { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; }
+  .team-row.winner { background: var(--warning-bg); border-color: var(--warning-border); }
+  .team-row-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+  .team-place { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-weight: 600; font-size: 13px; color: var(--text-muted); margin-right: 8px; }
+  .team-place.winner { color: var(--warning); }
+  .team-name { font-size: 14px; font-weight: 600; flex: 1; min-width: 0; }
+  .team-pts { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 18px; font-weight: 700; }
+  .team-row.winner .team-pts { color: var(--warning); }
+  .team-places { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; color: var(--text-muted); display: flex; flex-wrap: wrap; gap: 6px; }
+  .team-place-pill { background: #f1f5f9; padding: 2px 7px; border-radius: 999px; font-weight: 500; }
+  .team-place-pill.disp { background: var(--surface); border: 1px dashed var(--border-strong); color: var(--text-faint); }
+  .team-row.winner .team-place-pill { background: white; }
+  .team-nts { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin-bottom: 8px; opacity: 0.7; }
+  .team-nts-l { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .team-nts-name { font-size: 13px; font-weight: 500; margin-top: 2px; }
+
+  .ind-row { display: grid; grid-template-columns: 30px 50px 1fr 60px 18px; gap: 8px; padding: 7px 12px; align-items: center; border-bottom: 1px solid var(--border); font-size: 12px; background: var(--surface); }
+  .ind-row:last-child { border-bottom: none; }
+  .ind-pos { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-weight: 600; font-size: 12px; }
+  .ind-bib { font-family: ui-monospace, "SF Mono", Menlo, monospace; color: var(--text-muted); font-size: 11px; }
+  .ind-name { font-weight: 500; }
+  .ind-school { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+  .ind-time { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+  .ind-pr { color: var(--warning); font-size: 14px; text-align: center; }
+
+  .school-filter { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .school-filter button { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font-size: 11px; color: var(--text-muted); }
+  .school-filter button.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+  /* share section */
+  .share-section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 24px; display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: start; }
+  .qr-box { width: 140px; height: 140px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .qr-box img { width: 100%; height: 100%; }
+  .share-info { min-width: 0; }
+  .share-l { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+  .share-url { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px; word-break: break-all; color: var(--primary); margin: 4px 0 12px; padding: 6px 8px; background: var(--primary-bg); border-radius: 4px; }
+  .share-actions { display: flex; flex-direction: column; gap: 6px; }
+  .share-btn { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); font-size: 12px; font-weight: 500; text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .share-btn.primary { background: var(--primary); color: white; border-color: var(--primary); }
+  .share-btn:hover { border-color: var(--border-strong); }
+
+  /* roster upload */
+  .upload-cta { width: 100%; padding: 14px; border-radius: 10px; background: var(--primary); color: white; font-size: 14px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .upload-cta:hover { background: var(--primary-strong); }
+  .upload-cta-sub { font-weight: 400; font-size: 12px; opacity: 0.85; }
+  .upload-icon { width: 18px; height: 18px; }
+  .modal.wide { max-width: 600px; }
+  .upload-hint { font-size: 12px; color: var(--text-muted); line-height: 1.6; margin-bottom: 14px; padding: 10px 12px; background: var(--surface-2); border-radius: 6px; }
+  .upload-hint code { background: var(--surface); padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+  .upload-textarea { width: 100%; min-height: 140px; padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; background: var(--surface); resize: vertical; }
+  .upload-preview { margin: 14px 0; max-height: 240px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+  .upload-summary { padding: 8px 12px; background: var(--surface-2); font-size: 11px; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.5px; display: flex; justify-content: space-between; align-items: center; }
+  .upload-summary .count-ok { color: var(--success); }
+  .upload-summary .count-err { color: var(--danger); }
+  .upload-row-p { display: grid; grid-template-columns: 16px 1fr 30px 30px 1fr; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--border); font-size: 11px; align-items: center; }
+  .upload-row-p:last-child { border-bottom: none; }
+  .upload-row-p.invalid { background: var(--danger-bg); }
+  .upload-row-p .row-mark { font-weight: bold; text-align: center; }
+  .upload-row-p .row-mark.ok { color: var(--success); }
+  .upload-row-p .row-mark.err { color: var(--danger); }
+  .upload-row-p .row-error { font-size: 10px; color: var(--danger); font-style: italic; }
+  .upload-row-p .row-name { font-weight: 500; }
+  .upload-options { padding: 12px; background: var(--surface-2); border-radius: 8px; margin: 12px 0; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+  .upload-sample-btn { background: var(--surface); color: var(--text-muted); padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 11px; font-weight: 500; }
+
+  /* modal */
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
+  .modal { background: var(--surface); border-radius: 14px; padding: 20px; max-width: 420px; width: 100%; }
+  .modal-title { font-size: 17px; font-weight: 600; margin-bottom: 16px; }
+  .form-group { margin-bottom: 12px; }
+  .form-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px; }
+  .form-input { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background: var(--surface); }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+  .modal-actions button { flex: 1; padding: 10px; border-radius: 8px; font-size: 13px; font-weight: 500; }
+  .modal-actions .cancel { border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); }
+  .modal-actions .submit { background: var(--primary); color: white; }
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<div id="modal-root"></div>
+
+<script>
+//=================================================================
+// STATE + SYNC (simplified for your exact needs)
+//=================================================================
+const CHANNEL_NAME = "xc-track-pro-v1";
+const STORAGE_KEY = "xc-track-pro-v1";
+const channel = new BroadcastChannel(CHANNEL_NAME);
+
+let state = {
+  athletes: [],
+  meets: [],
+  activeMeetId: null,
+  darkMode: false
+};
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) state = JSON.parse(raw);
+  } catch (e) {}
+}
+function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+function broadcast(ev) {
+  applyEvent(ev);
+  saveState();
+  channel.postMessage(ev);
+  render();
+}
+channel.addEventListener("message", (e) => { applyEvent(e.data); saveState(); render(); });
+
+function applyEvent(ev) {
+  const m = ev.meetId ? state.meets.find(x => x.id === ev.meetId) : state.meets.find(x => x.id === state.activeMeetId);
+  switch (ev.type) {
+    case "ATHLETE_ADD":
+      state.athletes.push(ev.athlete);
+      break;
+    case "ATHLETE_REMOVE":
+      state.athletes = state.athletes.filter(a => a.id !== ev.id);
+      break;
+    case "MEET_CREATE":
+      state.meets.push(ev.meet);
+      state.activeMeetId = ev.meet.id;
+      break;
+    case "MEET_UPDATE":
+      if (m) Object.assign(m, ev.fields);
+      break;
+    case "RACE_START":
+      if (m) { m.raceStartedAt = ev.startedAt; m.endedAt = null; m.timerTaps = []; m.recorderBibs = []; }
+      break;
+    case "RACE_END":
+      if (m) { m.endedAt = ev.endedAt; }
+      break;
+    case "TIMER_TAP":
+      if (m && m.raceStartedAt && !m.endedAt) m.timerTaps.push({ position: m.timerTaps.length + 1, ms: ev.ms });
+      break;
+    case "TIMER_UNDO":
+      if (m) m.timerTaps.pop();
+      break;
+    case "RECORDER_BIB":
+      if (m && m.raceStartedAt && !m.endedAt) m.recorderBibs.push({ position: m.recorderBibs.length + 1, bib: ev.bib });
+      break;
+    case "RECORDER_UNDO":
+      if (m) m.recorderBibs.pop();
+      break;
+    case "BIBS_ASSIGN":
+      if (m) {
+        // Sort by last name, assign 0000, 0001, 0002...
+        const sorted = [...m.entries].sort((a, b) => {
+          const athA = state.athletes.find(x => x.id === a.athleteId);
+          const athB = state.athletes.find(x => x.id === b.athleteId);
+          return (athA?.last || "").localeCompare(athB?.last || "");
+        });
+        sorted.forEach((entry, i) => {
+          entry.bib = String(i).padStart(4, "0");
+        });
+      }
+      break;
+    case "ENTRY_TOGGLE":
+      if (m) {
+        const i = m.entries.findIndex(e => e.athleteId === ev.athleteId);
+        if (i >= 0) m.entries.splice(i, 1);
+        else m.entries.push({ athleteId: ev.athleteId, bib: null });
+      }
+      break;
+    case "FULL_RESET":
+      state = { athletes: [], meets: [], activeMeetId: null, darkMode: false };
+      break;
+  }
+}
+
+//=================================================================
+// HELPERS
+//=================================================================
+function fmtTime(sec) {
+  if (sec == null) return "—";
+  if (sec < 0) sec = 0;
+  const m = Math.floor(sec / 60);
+  const s = (sec - m * 60).toFixed(1);
+  return `${m}:${s.padStart(4, "0")}`;
+}
+function elapsed(meet) {
+  if (!meet || !meet.raceStartedAt) return 0;
+  const end = meet.endedAt || Date.now();
+  return (end - meet.raceStartedAt) / 1000;
+}
+function findAthlete(bib, meet) {
+  if (!bib || !meet) return null;
+  const entry = meet.entries.find(e => e.bib === bib);
+  if (!entry) return null;
+  return state.athletes.find(a => a.id === entry.athleteId);
+}
+function makeId(p = "x") { return p + "-" + Math.random().toString(36).slice(2, 9); }
+
+//=================================================================
+// RENDER
+//=================================================================
+const app = document.getElementById("app");
+const modalRoot = document.getElementById("modal-root");
+
+function render() {
+  const route = location.hash.replace("#", "") || "picker";
+  modalRoot.innerHTML = "";
+  if (route === "picker") return renderPicker();
+  if (route === "timer") return renderTimer();
+  if (route === "recorder") return renderRecorder();
+  if (route.startsWith("coach")) return renderCoach();
+  renderPicker();
+}
+window.addEventListener("hashchange", render);
+setInterval(() => {
+  const active = state.meets.find(m => m.id === state.activeMeetId);
+  if (active && active.raceStartedAt && !active.endedAt) {
+    const el = document.getElementById("live-clock");
+    if (el) el.textContent = fmtTime(elapsed(active));
+    const big = document.getElementById("clock-big");
+    if (big) big.textContent = fmtTime(elapsed(active));
+  }
+}, 100);
+
+function renderPicker() {
+  app.className = "app";
+  app.innerHTML = `
+    <div class="picker">
+      <h1>XCTrack Pro</h1>
+      <p>Professional cross-country timing for meets.<br>Two-person chute workflow • Official XC scoring • Instant results.</p>
+      
+      <div class="role-grid">
+        <button class="role-card timer" onclick="location.hash='timer'">
+          <div class="role-card-title"><span class="role-tag timer">TIMER</span></div>
+          <div class="role-card-desc">Stand at the finish line. Tap the giant button every time a runner crosses. No thinking required.</div>
+        </button>
+        
+        <button class="role-card recorder" onclick="location.hash='recorder'">
+          <div class="role-card-title"><span class="role-tag recorder">RECORDER</span></div>
+          <div class="role-card-desc">Stand at the chute exit. Use the large keypad to enter bib numbers in finish order.</div>
+        </button>
+        
+        <button class="role-card coach" onclick="location.hash='coach'">
+          <div class="role-card-title"><span class="role-tag coach">COACH / DIRECTOR</span></div>
+          <div class="role-card-desc">Upload roster, manage meets, assign bibs by last name, view live results & team scores.</div>
+        </button>
+      </div>
+      
+      <div class="picker-instructions">
+        <b>Pro tip:</b> Open this page in two browser tabs or on two phones. Use one as Timer and one as Recorder — they stay perfectly in sync.
+      </div>
+    </div>
+  `;
+}
+
+//=================================================================
+// COACH VIEW (Roster + Meets + Results)
+//=================================================================
+function renderCoach() {
+  app.className = "app wide";
+  const active = state.meets.find(m => m.id === state.activeMeetId);
+  
+  app.innerHTML = `
+    <div class="shell-top">
+      <div class="meet-selector-row">
+        <select class="meet-selector" onchange="switchMeet(this.value)">
+          ${state.meets.map(m => `<option value="${m.id}" ${m.id === state.activeMeetId ? 'selected' : ''}>${m.name}</option>`).join('')}
+          ${state.meets.length === 0 ? '<option>No meets yet</option>' : ''}
+        </select>
+        <button class="new-meet-btn" onclick="createNewMeet()">+ New Meet</button>
+      </div>
+      ${active ? `
+        <div class="meet-meta-row">
+          <span>${active.date} • ${active.location}</span>
+          <span class="switch-link" onclick="location.hash='picker'">switch role</span>
+        </div>
+      ` : ''}
+    </div>
+    
+    <div class="nav-tabs">
+      <button class="nav-tab active" onclick="showCoachTab('roster')">Roster</button>
+      <button class="nav-tab" onclick="showCoachTab('entry')">Meet Entry</button>
+      <button class="nav-tab" onclick="showCoachTab('results')">Results</button>
+    </div>
+    
+    <div class="view" id="coach-content">
+      <!-- Content loaded by showCoachTab() -->
+    </div>
+  `;
+  
+  showCoachTab('roster');
+}
+
+function showCoachTab(tab) {
+  const container = document.getElementById('coach-content');
+  const active = state.meets.find(m => m.id === state.activeMeetId);
+  
+  if (!active && tab !== 'roster') {
+    container.innerHTML = `<div class="empty-state">Create a meet first to manage entries and results.</div>`;
+    return;
+  }
+  
+  if (tab === 'roster') {
+    container.innerHTML = `
+      <button class="upload-cta" onclick="openRosterUpload()">
+        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Upload Roster CSV
+        <span class="upload-cta-sub">First, Last, Grade, Gender, School, Email, Phone</span>
+      </button>
+      
+      <div class="action-grid">
+        <button class="action-btn primary" onclick="assignBibsByLastName()">🔢 Assign Bibs by Last Name (0000, 0001...)</button>
+        <button class="action-btn" onclick="if(confirm('Clear all bibs?')) clearAllBibs()">Clear Bibs</button>
+      </div>
+      
+      <div class="section-label">Current Roster (${state.athletes.length} athletes)</div>
+      ${state.athletes.length === 0 ? `<div class="empty-state">No athletes yet. Upload a roster above.</div>` : `
+        <div class="school-block">
+          <div class="school-head"><div class="school-name">All Athletes</div></div>
+          ${state.athletes.map(a => `
+            <div class="athlete-row">
+              <div class="ath-bib ${a.bib ? '' : 'empty'}">${a.bib || '—'}</div>
+              <div class="ath-name">${a.first} ${a.last}</div>
+              <div class="ath-grade">${a.grade}</div>
+              <div class="ath-gender ${a.gender}">${a.gender}</div>
+              <div class="ath-school">${a.school}</div>
+              <button class="ath-del" onclick="removeAthlete('${a.id}')">×</button>
+            </div>
+          `).join('')}
+        </div>
+      `}
+    `;
+  } else if (tab === 'entry') {
+    container.innerHTML = `
+      <div class="status-banner ${active.entries.length > 0 ? 'success' : 'warn'}">
+        <div class="status-banner-l">${active.entries.length} athletes entered • ${active.entries.filter(e => e.bib).length} bibs assigned</div>
+      </div>
+      
+      <button class="action-btn primary" onclick="assignBibsByLastName()" style="width:100%; margin-bottom:16px;">Auto-Assign Bibs by Last Name</button>
+      
+      <div class="section-label">Athletes in this meet</div>
+      ${state.athletes.map(a => {
+        const entered = active.entries.find(e => e.athleteId === a.id);
+        return `
+          <div class="athlete-row ${entered ? 'entered' : ''}" onclick="toggleEntry('${a.id}')">
+            <div class="athlete-check ${entered ? 'checked' : ''}">${entered ? '✓' : ''}</div>
+            <div class="ath-bib">${entered && entered.bib ? entered.bib : '—'}</div>
+            <div class="ath-name">${a.first} ${a.last}</div>
+            <div class="ath-grade">${a.grade}</div>
+            <div class="ath-gender ${a.gender}">${a.gender}</div>
+            <div class="ath-school">${a.school}</div>
+          </div>
+        `;
+      }).join('')}
+    `;
+  } else if (tab === 'results') {
+    const finishers = computeResults(active);
+    container.innerHTML = `
+      <div class="share-section">
+        <div class="qr-box"><img src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=https://xctrack.pro/m/${active.id}" /></div>
+        <div class="share-info">
+          <div class="share-l">Public Results</div>
+          <div class="share-url">https://xctrack.pro/m/${active.id}</div>
+          <div class="share-actions">
+            <button class="share-btn primary" onclick="downloadCSV()">Download CSV</button>
+            <button class="share-btn" onclick="window.print()">Print Results</button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="results-section">
+        <div class="results-h"><span>Team Scores (XC Rules)</span></div>
+        ${renderTeamScores(finishers)}
+      </div>
+      
+      <div class="results-section">
+        <div class="results-h"><span>Individual Results</span></div>
+        ${renderIndividualResults(finishers)}
+      </div>
+    `;
+  }
+}
+
+function switchMeet(id) {
+  state.activeMeetId = id;
+  saveState();
+  render();
+}
+
+function createNewMeet() {
+  const name = prompt("Meet name:", "Invitational 2026");
+  if (!name) return;
+  const meet = {
+    id: makeId("m"),
+    name,
+    date: new Date().toISOString().split('T')[0],
+    location: "TBD",
+    entries: [],
+    raceStartedAt: null,
+    endedAt: null,
+    timerTaps: [],
+    recorderBibs: []
+  };
+  broadcast({ type: "MEET_CREATE", meet });
+}
+
+function toggleEntry(athleteId) {
+  const active = state.meets.find(m => m.id === state.activeMeetId);
+  if (!active) return;
+  broadcast({ type: "ENTRY_TOGGLE", meetId: active.id, athleteId });
+}
+
+function assignBibsByLastName() {
+  const active = state.meets.find(m => m.id === state.activeMeetId);
+  if (!active) return;
+  broadcast({ type: "BIBS_ASSIGN", meetId: active.id });
+  alert("Bibs assigned by last name (0000, 0001, 0002...)");
+}
+
+function clearAllBibs() {
+  const active = state.meets.find(m => m.id === state.activeMeetId);
+  if (!active) return;
+  active.entries.forEach(e => e.bib = null);
+  saveState();
+  render();
+}
+
+function removeAthlete(id) {
+  if (!confirm("Remove this athlete from the roster?")) return;
+  broadcast({ type: "ATHLETE_REMOVE", id });
+}
+
+//=================================================================
+// ROSTER UPLOAD (exact columns you requested)
+//=================================================================
+function openRosterUpload() {
+  modalRoot.innerHTML = `
+    <div class="modal-bg" onclick="if(event.target===this) closeModal()">
+      <div class="modal wide">
+        <div class="modal-title">Upload Roster</div>
+        <div class="upload-hint">
+          Paste from spreadsheet or type one athlete per line.<br>
+          <strong>Columns (in this order):</strong> First, Last, Grade, Gender, School, Email, Phone<br>
+          Header row is optional. Comma or tab separated.
+        </div>
+        
+        <textarea class="upload-textarea" id="roster-text" placeholder="Marcus, Chen, 12, M, Crystal Springs, marcus@school.edu, 555-1234&#10;Jamal, Williams, 12, M, Crystal Springs, jamal@school.edu, 555-5678"></textarea>
+        
+        <div class="upload-options">
+          <input type="checkbox" id="enter-meet" checked>
+          <label for="enter-meet">Also enter these athletes in the current meet</label>
+        </div>
+        
+        <div class="modal-actions">
+          <button class="cancel" onclick="closeModal()">Cancel</button>
+          <button class="submit" onclick="processRosterUpload()">Upload Roster</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function processRosterUpload() {
+  const text = document.getElementById('roster-text').value.trim();
+  const enter = document.getElementById('enter-meet').checked;
+  if (!text) { alert("Please paste roster data"); return; }
+  
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  let added = 0;
+  const active = state.meets.find(m => m.id === state.activeMeetId);
+  
+  lines.forEach(line => {
+    const parts = line.split(/[,\t]/).map(p => p.trim().replace(/^"|"$/g, ''));
+    if (parts.length < 5) return;
+    
+    const [first, last, grade, gender, school, email = '', phone = ''] = parts;
+    if (!first || !last || !grade || !gender || !school) return;
+    
+    const athlete = {
+      id: makeId("a"),
+      first, last,
+      grade: parseInt(grade),
+      gender: gender.toUpperCase().startsWith('F') ? 'F' : 'M',
+      school,
+      email, phone,
+      bib: null
+    };
+    
+    // Avoid duplicates
+    if (!state.athletes.some(a => a.first === first && a.last === last && a.school === school)) {
+      broadcast({ type: "ATHLETE_ADD", athlete });
+      added++;
+      
+      if (enter && active) {
+        broadcast({ type: "ENTRY_TOGGLE", meetId: active.id, athleteId: athlete.id });
+      }
+    }
+  });
+  
+  closeModal();
+  alert(`Added ${added} athletes to roster${enter ? ' and current meet' : ''}.`);
+  render();
+}
+
+function closeModal() { modalRoot.innerHTML = ""; }
+
+//=================================================================
+// TIMER VIEW
+//=================================================================
+function renderTimer() {
+  app.className = "app";
+  const active = state.meets.find(m => m.id === state.activeMeetId);
+  
+  app.innerHTML = `
+    <div class="topbar">
+      <div class="topbar-l">
+        <div class="eyebrow">TIMER ROLE</div>
+        <div class="meet-name">${active ? active.name : 'No active meet'}</div>
+      </div>
+      <div class="topbar-r">
+        <span class="switch-link" onclick="location.hash='picker'">switch role</span>
+      </div>
+    </div>
+    
+    <div class="view">
+      ${!active || !active.raceStartedAt ? `
+        <div class="empty-state">Waiting for director to start the race.<br>Coach can start from the Coach view.</div>
+      ` : `
+        <div class="clock-card">
+          <div class="clock-card-l">ELAPSED TIME</div>
+          <div class="clock-card-v" id="clock-big">${fmtTime(elapsed(active))}</div>
+        </div>
+        
+        <button class="tap-mega" id="tap-btn" onmousedown="recordFinish()" ontouchstart="event.preventDefault(); recordFinish()">
+          <div class="tap-mega-t">TAP WHEN RUNNER CROSSES</div>
+          <div class="tap-mega-v">FINISH</div>
+          <div class="tap-mega-h">Position ${active.timerTaps.length + 1}</div>
+        </button>
+        
+        <button class="undo-btn" onclick="undoTimer()" ${active.timerTaps.length === 0 ? 'disabled' : ''}>Undo Last Tap</button>
+        
+        <div style="margin-top: 24px; text-align: center;">
+          <button class="action-btn danger" onclick="endRace()" ${active.endedAt ? 'disabled' : ''}>Stop Race</button>
+        </div>
+      `}
+    </div>
+  `;
+}
+
+function recordFinish() {
+  const active = state.meets.find(m => m.id === state.activeMeetId);
+  if (!active || !active.raceStartedAt || active.endedAt) return;
+  
+  const btn = document.getElementById('tap-btn');
+  if (btn) { btn.classList.add('tap-flash'); setTimeout(() => btn.classList.remove('tap-flash'), 80); }
+  
+  broadcast({ type: "TIMER_TAP", ms: Date.now() - active.raceStartedAt });
+}
+
+function undoTimer() {
+  broadcast({ type: "TIMER_UNDO" });
+}
+
+function endRace() {
+  const active = state.meets.find(m => m.id === state.activeMeetId);
+  if (!active) return;
+  broadcast({ type: "RACE_END", meetId: active.id, endedAt: Date.now() });
+  alert("Race ended. Results are now available in the Coach view.");
+}
+
+//=================================================================
+// RECORDER VIEW (Large Keypad)
+//=================================================================
+let bibInput = "";
+function renderRecorder() {
+  app.className = "app";
+  const active = state.meets.find(m => m.id === state.activeMeetId);
+  const nextPos = active ? active.recorderBibs.length + 1 : 1;
+  const matchingTap = active ? active.timerTaps[nextPos - 1] : null;
+  
+  app.innerHTML = `
+    <div class="topbar">
+      <div class="topbar-l">
+        <div class="eyebrow">RECORDER ROLE</div>
+        <div class="meet-name">${active ? active.name : 'No active meet'}</div>
+      </div>
+      <div class="topbar-r">
+        <span class="switch-link" onclick="location.hash='picker'">switch role</span>
+      </div>
+    </div>
+    
+    <div class="view">
+      ${!active || !active.raceStartedAt ? `
+        <div class="empty-state">Waiting for race to start.</div>
+      ` : `
+        <div class="drift-bar ${active.timerTaps.length === active.recorderBibs.length ? 'synced' : 'drift'}">
+          <b>${active.timerTaps.length - active.recorderBibs.length} pending</b>
+        </div>
+        
+        ${matchingTap ? `
+          <div class="pending-card">
+            <div class="pending-row">
+              <div class="pending-pos">Position ${nextPos}</div>
+              <div class="pending-time">${fmtTime(matchingTap.ms / 1000)}</div>
+            </div>
+            <div class="pending-bib-display">
+              ${[0,1,2,3].map(i => `<div class="bib-digit ${bibInput.length <= i ? 'empty' : ''}">${bibInput[i] || '_'}</div>`).join('')}
+            </div>
+            <div class="resolved-name">
+              ${bibInput.length === 4 ? (findAthlete(bibInput, active) ? findAthlete(bibInput, active).first + ' ' + findAthlete(bibInput, active).last : 'Unknown bib') : ''}
+            </div>
+          </div>
+        ` : `<div class="pending-empty">Waiting for next finisher...</div>`}
+        
+        <div class="keypad">
+          ${[1,2,3,4,5,6,7,8,9].map(d => `<button class="key" onclick="addBibDigit('${d}')" ${bibInput.length >= 4 || !matchingTap ? 'disabled' : ''}>${d}</button>`).join('')}
+          <button class="key del" onclick="deleteBibDigit()" ${bibInput.length === 0 ? 'disabled' : ''}>⌫</button>
+          <button class="key" onclick="addBibDigit('0')" ${bibInput.length >= 4 || !matchingTap ? 'disabled' : ''}>0</button>
+          <button class="key commit" onclick="submitBib()" ${bibInput.length !== 4 || !matchingTap ? 'disabled' : ''}>ENTER</button>
+        </div>
+        
+        <button class="undo-btn" onclick="undoRecorder()" ${active.recorderBibs.length === 0 ? 'disabled' : ''}>Undo Last Bib</button>
+      `}
+    </div>
+  `;
+}
+
+function addBibDigit(d) {
+  if (bibInput.length >= 4) return;
+  bibInput += d;
+  renderRecorder();
+}
+
+function deleteBibDigit() {
+  bibInput = bibInput.slice(0, -1);
+  renderRecorder();
+}
+
+function submitBib() {
+  if (bibInput.length !== 4) return;
+  const bib = bibInput;
+  bibInput = "";
+  broadcast({ type: "RECORDER_BIB", bib });
+  renderRecorder();
+}
+
+function undoRecorder() {
+  broadcast({ type: "RECORDER_UNDO" });
+}
+
+//=================================================================
+// RESULTS HELPERS
+//=================================================================
+function computeResults(meet) {
+  if (!meet) return [];
+  const results = [];
+  for (let i = 0; i < meet.recorderBibs.length; i++) {
+    const tap = meet.timerTaps[i];
+    const bibEntry = meet.recorderBibs[i];
+    if (!tap || bibEntry.bib == null) continue;
+    const ath = findAthlete(bibEntry.bib, meet);
+    if (!ath) continue;
+    results.push({
+      place: results.length + 1,
+      time: tap.ms / 1000,
+      bib: bibEntry.bib,
+      ...ath
+    });
+  }
+  return results;
+}
+
+function renderTeamScores(finishers) {
+  if (finishers.length === 0) return `<div class="empty-state">No finishers yet.</div>`;
+  
+  const bySchool = {};
+  finishers.forEach(f => {
+    if (!bySchool[f.school]) bySchool[f.school] = [];
+    bySchool[f.school].push(f);
+  });
+  
+  const scoredTeams = Object.keys(bySchool)
+    .filter(s => bySchool[s].length >= 5)
+    .map(school => {
+      const runners = bySchool[school];
+      const top5 = runners.slice(0, 5);
+      const displacers = runners.slice(5, 7);
+      const points = top5.reduce((sum, r) => sum + r.place, 0);
+      return { school, points, top5, displacers, count: runners.length };
+    })
+    .sort((a, b) => a.points - b.points || (a.displacers[0]?.place || 999) - (b.displacers[0]?.place || 999));
+  
+  return scoredTeams.map((team, i) => `
+    <div class="team-row ${i === 0 ? 'winner' : ''}">
+      <div class="team-row-head">
+        <div style="display:flex; align-items:baseline; flex:1;">
+          <span class="team-place ${i === 0 ? 'winner' : ''}">${i + 1}.</span>
+          <span class="team-name">${team.school}</span>
+        </div>
+        <div class="team-pts">${team.points}</div>
+      </div>
+      <div class="team-places">
+        ${team.top5.map(r => `<span class="team-place-pill">${r.place}</span>`).join('')}
+        ${team.displacers.map(r => `<span class="team-place-pill disp">(${r.place})</span>`).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderIndividualResults(finishers) {
+  if (finishers.length === 0) return `<div class="empty-state">No results.</div>`;
+  return finishers.map(f => `
+    <div class="ind-row">
+      <div class="ind-pos">${f.place}</div>
+      <div class="ind-bib">${f.bib}</div>
+      <div>
+        <div class="ind-name">${f.first} ${f.last}</div>
+        <div class="ind-school">${f.school} • Grade ${f.grade}</div>
+      </div>
+      <div class="ind-time">${fmtTime(f.time)}</div>
+    </div>
+  `).join('');
+}
+
+function downloadCSV() {
+  const active = state.meets.find(m => m.id === state.activeMeetId);
+  if (!active) return;
+  const finishers = computeResults(active);
+  if (finishers.length === 0) { alert("No results to export"); return; }
+  
+  let csv = "Place,Bib,First,Last,Grade,Gender,School,Time\n";
+  finishers.forEach(f => {
+    csv += `${f.place},${f.bib},${f.first},${f.last},${f.grade},${f.gender},${f.school},${fmtTime(f.time)}\n`;
+  });
+  
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${active.name.replace(/ /g, "_")}-results.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+//=================================================================
+// INIT
+//=================================================================
+loadState();
+
+// Seed a sample meet + athletes if empty
+if (state.meets.length === 0) {
+  const sampleMeet = {
+    id: "meet-001",
+    name: "Crystal Springs Invitational",
+    date: "2026-05-10",
+    location: "Crystal Springs HS",
+    entries: [],
+    raceStartedAt: null,
+    endedAt: null,
+    timerTaps: [],
+    recorderBibs: []
+  };
+  state.meets.push(sampleMeet);
+  state.activeMeetId = sampleMeet.id;
+  
+  // Sample athletes (no bibs yet)
+  const samples = [
+    { first: "Marcus", last: "Chen", grade: 12, gender: "M", school: "Crystal Springs", email: "marcus@cs.edu", phone: "555-0101" },
+    { first: "Jamal", last: "Williams", grade: 12, gender: "M", school: "Crystal Springs", email: "jamal@cs.edu", phone: "555-0102" },
+    { first: "Ava", last: "Rodriguez", grade: 11, gender: "F", school: "Pine Hills", email: "ava@ph.edu", phone: "555-0201" },
+    { first: "Liam", last: "Patel", grade: 10, gender: "M", school: "Pine Hills", email: "liam@ph.edu", phone: "555-0202" },
+    { first: "Sophia", last: "Kim", grade: 12, gender: "F", school: "Westview", email: "sophia@wv.edu", phone: "555-0301" }
+  ];
+  samples.forEach(s => {
+    state.athletes.push({ id: makeId("a"), ...s, bib: null });
+  });
+  saveState();
+}
+
+render();
+</script>
+</body>
+</html>
